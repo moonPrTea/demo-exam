@@ -1,16 +1,16 @@
 # Demo exam preparation
 
-This repository contains a practical preparation kit for the 2027 demonstration
-exam example for specialty 09.02.07. The supplied example describes a C#
-WinForms application backed by PostgreSQL for the shoe retailer
-`Чудо Обувь`.
+The example package is training material, not a fixed exam theme. The first
+exam level is to inspect unfamiliar spreadsheet data, design a normalized
+relational model, produce one clean CSV per table, and create the PostgreSQL
+database yourself.
 
 Start here:
 
-- [Exam playbook](docs/EXAM_PLAYBOOK.md)
-- [C# and WinForms cheat sheet](docs/WINFORMS_CSHARP_CHEATSHEET.md)
-- [Database import guide](database/README.md)
+- [Theme-independent normalization workflow](docs/NORMALIZATION_WORKFLOW.md)
+- [LibreOffice Calc formula guide](docs/CALC_FORMULAS.md)
+- [PostgreSQL DDL and import guide](database/README.md)
+- [Preparation and exam plan](docs/EXAM_PLAYBOOK.md)
 
-The original archive is intentionally not committed. Copy a new exam package
-into your own working folder and keep the database and application projects
-separate from the source materials.
+The repository does not contain a completed database for the shoe example. A
+ready-made solution would bypass the skill that this level is intended to test.

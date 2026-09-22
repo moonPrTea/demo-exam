@@ -1,282 +1,153 @@
-# План подготовки и выполнения демонстрационного экзамена
+# Preparation and exam plan
 
-## Что известно из приложенного комплекта
+## Principle
 
-Комплект описывает приложение магазина обуви «Чудо Обувь». Нужно реализовать
-PostgreSQL базу данных и настольное приложение C# WinForms. В приложении должны
-быть каталог, авторизация только по логину, корзина и оформление заказа,
-просмотр заказов и разграничение функций по ролям.
-
-В архиве есть только описание предметной области, руководство по стилю и
-исходные таблицы. В нем нет основной формулировки задания, критериев оценки,
-лимита времени и правил сдачи. Поэтому этот план покрывает все требования из
-приложений, но перед экзаменом его нужно сверить с основным КИМ и критериями.
-
-### Роли и доступ
-
-| Роль | Каталог | Поиск фильтр сортировка | Оформление заказа | Просмотр и состав заказов | Добавление и удаление заказов | Редактирование заказа |
-| --- | --- | --- | --- | --- | --- | --- |
-| Гость | Да | Можно не делать | Нет | Нет | Нет | Нет |
-| Авторизованный пользователь | Да | Да | Да | Нет | Нет | Нет |
-| Менеджер | Да | Да | Да | Да | Да | Нет |
-| Администратор | Да | Да | Да | Да | Да | Да |
-
-Пароль не нужен. Вход выполняется по логину из таблицы пользователей.
-
-### Обязательный стиль
-
-- У каждой формы есть заголовок.
-- На главной форме расположен логотип без искажения пропорций и цвета.
-- У приложения установлена выданная иконка.
-- Шрифт Calibri.
-- Основной фон `#FFFFFF`, дополнительный фон `#D2F6E7`, целевое действие
-  `#70B2AF`.
-- Модель товара подсвечивается `#FF8080`, если сумма доступного количества по
-  всем ее размерам меньше или равна трем. Проверяется сумма по модели, а не
-  остаток одной размерной позиции.
-
-## Аудит исходных данных
-
-| Файл | Строк | Что важно |
-| --- | ---: | --- |
-| `Users_import.xlsx` | 20 | 4 администратора, 7 менеджеров, 9 пользователей; логины уникальны |
-| `Products_import.xlsx` | 31 | 31 уникальное изображение, все файлы изображений присутствуют |
-| `Sizes_import.xlsx` | 35 | Размеры от 18 до 45, включая 36.5–42.5; тип `integer` использовать нельзя |
-| `Stock_Items_import.xlsx` | 92 | 1274 пары всего; ключ позиции — модель плюс размер |
-| `Orders_import.xlsx` | 30 строк | 10 заказов; одна строка — одна позиция заказа |
-
-Перед связыванием таблиц нужно исправить три несовпадения имен:
-
-1. В названии женских туфель есть неразрывный пробел.
-2. После `Кроссовки «Азимут Бег»` в каталоге есть хвостовой пробел.
-3. `Черные туфли в классическом стиле` в остатках и заказах соответствуют
-   полному названию `Черные туфли в классическом стиле — база для деловых
-   образов` в каталоге.
-
-Скрипты в папке `database` исправляют пробелы и третье имя при загрузке через
-промежуточные таблицы.
-
-## План A
-
-Это основной и наиболее надежный путь.
-
-### 1. Сначала подготовить базу данных
-
-1. Создать пустую базу в pgAdmin.
-2. Выполнить `database/01_schema.sql`.
-3. В LibreOffice Calc сохранить пять исходных книг как CSV с кодировкой UTF-8,
-   разделителем `;`, текстовым разделителем `"` и первой строкой заголовков.
-4. Выполнить `database/02_prepare_staging.sql`.
-5. Через Import/Export Data в pgAdmin загрузить CSV по порядку столбцов в
-   таблицы `exam.stage_users`, `exam.stage_products`, `exam.stage_sizes`,
-   `exam.stage_stock_items`, `exam.stage_orders`. Для каждого импорта указать
-   Header, UTF8 и разделитель `;`.
-6. Выполнить `database/03_apply_import.sql`, затем
-   `database/04_checks.sql`.
-
-Промежуточные таблицы хранят все поля как текст. Это защищает от `36,5` вместо
-`36.5`, разных форматов даты и скрытых пробелов. Макросы для этого не нужны.
-
-### 2. Создать минимальную структуру WinForms
-
-Один solution и один WinForms-проект достаточны. Не тратить экзаменационное
-время на несколько проектов и сложную архитектуру.
-
-Рекомендуемые папки:
+Prepare for the repeated structure of the exam, not the story of one example.
+The nouns and colors can change. The reasoning remains:
 
 ```text
-Data        Db.cs, запросы и транзакции
-Models      UserSession, ProductRow, CartLine, OrderRow
-Forms       LoginForm, CatalogForm, CartForm, OrdersForm, OrderEditForm
-Assets      логотип, иконка, изображения товаров, picture.png
+understand domain
+→ normalize data
+→ create and verify PostgreSQL database
+→ connect C# application
+→ implement role based scenarios
+→ apply the current style guide
+→ test and package
 ```
 
-Сразу проверить соединение с PostgreSQL одной простой командой `SELECT 1`.
-Использовать параметризованные запросы Npgsql. Для совместимости со старой
-версией Npgsql использовать `NpgsqlConnection` и обычные блоки `using`, а не
-`NpgsqlDataSource`.
+## Level 1 is database design and normalization
 
-### 3. Реализовать один сквозной сценарий
+The first level is complete only when you can perform the following work by
+yourself from unfamiliar source files:
 
-Первый рабочий результат должен быть таким:
+1. State the grain of each source row.
+2. Identify entities, events, dictionaries, variants, and link tables.
+3. Explain one-to-many and many-to-many relationships.
+4. Normalize the source to third normal form.
+5. Create one Calc sheet and one CSV per database table.
+6. Assign primary keys and replace repeated parent data with foreign keys.
+7. Prove that there are no duplicate keys, missing parents, or lost totals.
+8. Write DDL in pgAdmin without copying a theme-specific script.
+9. Import parents before children and repeat the checks in SQL.
 
-1. Ввести существующий логин.
-2. Получить пользователя и роль из базы.
-3. Открыть каталог.
-4. Показать товары, изображения, размеры и суммарный остаток.
-5. Добавить доступный размер в корзину.
-6. Создать заказ одной транзакцией и уменьшить остаток.
+The detailed method is in
+[NORMALIZATION_WORKFLOW.md](NORMALIZATION_WORKFLOW.md). Formula patterns are in
+[CALC_FORMULAS.md](CALC_FORMULAS.md).
 
-Когда этот сценарий работает, добавлять фильтр, сортировку, экраны менеджера и
-оформление. Так после любого этапа остается запускаемая версия.
+## Recommended Level 1 plan
 
-### 4. Каталог
+### Plan A
 
-Загружать модель и остатки одним запросом с `LEFT JOIN`, `GROUP BY`, `SUM` и
-`string_agg`. Поиск делать через `ILIKE`. Категории загружать из базы, а не
-зашивать в форму.
+Use Calc formulas and standard filters. Keep untouched raw sheets, clean helper
+columns, normalized entity sheets, and a checks sheet. This is the most useful
+method to rehearse because every decision is visible and the workflow adapts to
+a new theme.
 
-Поиск, фильтр и сортировка должны применяться одновременно одной функцией
-`LoadCatalog`. Значение поиска и категории передаются параметрами. Имя столбца
-для `ORDER BY` выбирается только из заранее заданного списка, потому что имя
-столбца нельзя передать SQL-параметром.
+### Plan B
 
-При выборе модели отдельным запросом загружать только размеры с остатком больше
-нуля. Отсутствующее изображение заменять `picture.png`, а не завершать
-приложение с ошибкой.
+For very small sources, manually copy entity columns to separate sheets and use
+the `No duplication` option. Still assign IDs, create foreign keys with exact
+lookups, and run every check. Manual does not mean unverified.
 
-### 5. Корзина и создание заказа
+### Plan C
 
-Корзина хранится в памяти как список строк `product_id + size + quantity`.
-Одинаковая модель и размер объединяются в одну строку. Нельзя разрешать нулевое
-количество или количество больше доступного остатка.
+Use a configurable LibreOffice Basic macro only after mastering Plan A. The
+macro should read a mapping of sheet names, key columns, and output tables. It
+must not contain assumptions such as `Product`, `Order`, or `Size` in its core
+logic. Confirm that macros are allowed and enabled on the exam computer.
 
-Создание заказа выполняется одной транзакцией:
+## Level 1 checkpoints
 
-1. Добавить заголовок заказа и получить `order_id` через `RETURNING`.
-2. Для каждой строки уменьшить остаток командой с условием
-   `available_quantity >= @quantity`.
-3. Если обновлена не одна строка, отменить всю транзакцию.
-4. Цена берется из базы в момент оформления и сохраняется в `order_items`, а не
-   принимается из изменяемого элемента интерфейса.
-5. Добавить строки заказа и подтвердить транзакцию.
+Stop and verify after each checkpoint:
 
-Это предотвращает отрицательный остаток и частично записанный заказ.
-
-### 6. Заказы и роли
-
-В списке заказов показывать номер, дату, ФИО и итоговую сумму. Состав выбранного
-заказа показывать в отдельной таблице. Кнопки и обработчики защищать по роли:
-
-- пользователь видит только каталог и корзину;
-- менеджер видит список, состав, добавление и удаление;
-- администратор дополнительно может редактировать заказ.
-
-Проверять роль нужно не только видимостью кнопки, но и в начале обработчика.
-
-Удаление заказа также выполнять транзакцией: сначала вернуть количества всех
-его строк в `stock_items`, затем удалить заголовок заказа. Строки удалятся по
-`ON DELETE CASCADE`. При редактировании администратором считать разницу между
-новым и старым количеством. Увеличение строки должно резервировать только эту
-разницу с проверкой остатка, уменьшение должно вернуть разницу на склад.
-
-### 7. Оформление делать после функций
-
-После завершения сценариев установить Calibri, цвета, логотип, иконку,
-заголовки и подсветку остатков. `PictureBox.SizeMode` установить в `Zoom`, чтобы
-не искажать логотип и фотографии.
-
-## План B
-
-Это вариант на случай нехватки времени. Он сокращает код, но не требования.
-
-1. Использовать те же готовые SQL-скрипты и импорт через staging.
-2. Сделать одну главную форму с вкладками `Каталог`, `Корзина`, `Заказы`.
-3. Показывать и скрывать вкладки и кнопки по роли.
-4. Использовать `DataTable` и `DataGridView` вместо большого набора классов.
-5. Оставить синхронные запросы: на 31 товаре интерфейс не будет заметно
-   зависать, а кода меньше.
-6. Редактирование администратора ограничить датой, клиентом, количеством и
-   составом заказа. Не создавать универсальный редактор всех таблиц.
-
-Нельзя экономить на транзакции заказа, проверке остатка, параметрах SQL и
-разграничении ролей. Удаление и редактирование тоже должны корректировать
-остаток. Это влияет на корректность, а не на красоту архитектуры.
-
-## План C для проблем с импортом
-
-Если импорт CSV через pgAdmin недоступен:
-
-- В Calc можно формулами сформировать `INSERT` для промежуточных таблиц.
-  Обязательно заменять одинарную кавычку в тексте на две кавычки.
-- Можно написать одноразовый C#-импортер CSV, используя только стандартную
-  библиотеку и Npgsql. XLSX напрямую без дополнительной библиотеки читать не
-  нужно: сначала сохранить CSV в Calc.
-- Макрос LibreOffice Basic использовать только если он уже отрепетирован.
-  VBA-макрос Excel и LibreOffice Basic не полностью совместимы, а политика
-  безопасности может отключить макросы на экзаменационном компьютере.
-
-Самый рискованный вариант — вручную редактировать десятки `INSERT` или напрямую
-импортировать связанные данные в итоговые таблицы. Он плохо переживает скрытые
-пробелы и внешние ключи.
-
-## Порядок работы на экзамене
-
-Использовать контрольные точки, а не пытаться сразу закончить форму.
-
-| Этап | Результат, который обязательно проверить |
+| Checkpoint | Evidence |
 | --- | --- |
-| 1 | База создана, контрольные количества совпадают |
-| 2 | Проект запускается, соединение с БД работает |
-| 3 | Гость видит каталог, существующий логин входит, неверный логин отклоняется |
-| 4 | Каталог показывает изображения, поиск, фильтр, сортировку и размеры |
-| 5 | Корзина изменяет количество и считает сумму |
-| 6 | Заказ записывается транзакцией и уменьшает остаток |
-| 7 | Менеджер и администратор получают только положенные функции |
-| 8 | Стиль, заголовки, логотип, иконка и подсветка соответствуют руководству |
-| 9 | Выполнен финальный тест и подготовлена сдача |
+| Domain model | Entity list, keys, relationship list, row grain |
+| Clean data | Canonical keys and visible anomaly mapping |
+| Parent tables | Unique keys, stable IDs, expected distinct counts |
+| Child tables | All foreign-key lookups succeed |
+| Detail tables | Correct composite key or line ID and reconciled totals |
+| CSV files | Values only, one table per file, correct headers and types |
+| PostgreSQL | DDL constraints, successful import, zero orphans |
 
-После каждого этапа запускать приложение и делать локальный commit. Не оставлять
-первый запуск на конец.
+Do not continue to WinForms while a checkpoint is red. Application errors are
+much harder to diagnose when the database itself is wrong.
 
-## План подготовки
+## Later levels
 
-### Занятие 1
+After the database passes:
 
-С нуля создать схему PostgreSQL, выполнить импорт и объяснить каждую связь.
-Повторить первичные и внешние ключи, `JOIN`, `GROUP BY`, `SUM`, `string_agg` и
-транзакции.
+1. Create a minimal WinForms project and verify one parameterized `SELECT`.
+2. Implement authentication and the current variant's role matrix.
+3. Implement the central list or catalog with required search, filter, and
+   sorting behavior.
+4. Implement the main transaction using a PostgreSQL transaction.
+5. Add management functions for the roles that require them.
+6. Apply the supplied style guide, images, icons, and titles.
+7. Test every role and invalid input path.
 
-### Занятие 2
+Do not assume that the shoe example's roles, screens, or color rules are
+guaranteed. Extract them again from the actual exam documents.
 
-С нуля создать WinForms-проект, подключить Npgsql, выполнить параметризованный
-`SELECT`, заполнить `DataGridView` и загрузить изображение.
+## Practice program
 
-### Занятие 3
+### Practice 1 Recognition
 
-Реализовать логин без пароля, объект текущей сессии и таблицу прав. Проверить
-четыре роли отдельными сценариями.
+Take a wide table and mark each column as:
 
-### Занятие 4
+- entity attribute;
+- document header attribute;
+- detail attribute;
+- dictionary value;
+- derived value;
+- source-only helper.
 
-Реализовать каталог с объединенным поиском, фильтром и сортировкой. Отработать
-подсветку по сумме остатков модели.
+Explain every decision aloud.
 
-### Занятие 5
+### Practice 2 Calc normalization
 
-Реализовать корзину и создание заказа в транзакции. Специально проверить
-попытку заказать больше остатка и убедиться, что заказ не записался частично.
+Start from raw data and create normalized sheets using only cleaning formulas,
+standard filters, stable IDs, and exact lookups. Produce the `CHECKS` sheet.
 
-### Занятие 6
+### Practice 3 SQL from blank file
 
-Реализовать список, состав, удаление и редактирование заказа. Проверить
-ограничения менеджера и администратора.
+Without looking at an old schema, write the DDL from the sheet plan. Add keys,
+nullability, uniqueness, foreign keys, and checks. Import CSV files and run SQL
+validation.
 
-### Занятие 7
+### Practice 4 Same pattern different theme
 
-Повторить весь вариант на время без копирования старого проекта. После попытки
-составить список трех самых медленных действий и подготовить для них короткие
-шаблоны.
+Repeat the exercise for at least four themes such as commerce, education,
+clinic, and rental. Compare the structural patterns after finishing.
 
-### Занятие 8
+### Practice 5 Full mock exam
 
-Провести пробный экзамен: чистая база, новый solution, импорт, разработка,
-проверка и сдача. Использовать только разрешенные инструменты.
+Use a clean folder, new workbook, empty database, and new Visual Studio
+solution. Measure where time is lost. Improve reusable checklists and formula
+knowledge, not a solution tied to the mock theme.
 
-## Финальный чек-лист
+## Mistakes that waste the most time
 
-- Проект собирается после закрытия и повторного открытия Visual Studio.
-- Строка подключения не содержит случайной базы или порта.
-- Все SQL-значения передаются параметрами.
-- Все соединения, команды, readers и транзакции закрываются через `using`.
-- Размер имеет тип `numeric(4,1)` или `decimal`, а не `int`.
-- Фильтр, поиск и сортировка работают одновременно.
-- Подсветка рассчитывается по сумме всех размеров модели.
-- Нельзя добавить отсутствующий размер или получить отрицательный остаток.
-- Итог заказа равен сумме `quantity * unit_price`.
-- Отмена транзакции не оставляет заголовок заказа без строк.
-- Гость, пользователь, менеджер и администратор проверены отдельно.
-- Все формы имеют заголовок и Calibri.
-- Логотип показан с сохранением пропорций, иконка установлена.
-- Есть понятные сообщения об ошибках без технической трассировки.
-- В папку сдачи не попали `bin`, `obj`, `.vs`, пароли и лишние архивы.
+- Writing SQL before defining row grain and relationships.
+- Editing raw sheets and losing the original evidence.
+- Deduplicating by a visible name that is not actually unique.
+- Using approximate lookup instead of exact lookup.
+- Assigning IDs with formulas and then sorting without freezing values.
+- Hiding unmatched foreign keys with blank strings or zero.
+- Exporting formulas, totals, titles, or helper columns to CSV.
+- Importing child tables before parent tables.
+- Disabling constraints instead of fixing the normalization error.
+- Starting WinForms before database counts and relationships are verified.
+
+## What the example package is for
+
+Use it to practice the method:
+
+- identify the grain of every workbook;
+- derive tables without reading a supplied solution;
+- find hidden spaces, inconsistent names, decimals, dates, and repeated data;
+- create normalized sheets and CSV files yourself;
+- write and validate the DDL yourself.
+
+The example is not a schema to memorize. A different exam theme should lead to
+different entity names but the same reasoning process.
