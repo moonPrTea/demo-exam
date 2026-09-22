@@ -1,0 +1,8 @@
+.analysis/
+source-package/
+.DS_Store
+bin/
+obj/
+.vs/
+*.user
+*.suo
