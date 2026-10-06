@@ -4,5 +4,6 @@ source-package/
 bin/
 obj/
 .vs/
+.idea/
 *.user
 *.suo
