@@ -1,0 +1,17 @@
+{
+  "name": "forma-exam",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Offline, concept-first database exam practice",
+  "type": "module",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "preview": "node scripts/preview.js",
+    "test": "node --test tests/*.test.js",
+    "test:desktop": "electron tests/desktop.cjs",
+    "package": "electron-packager . Forma --out=release --ignore=\"^/(tests|scripts|release|\\.git|\\.idea)(/|$)\""
+  },
+  "engines": { "node": ">=22.12.0" },
+  "devDependencies": { "electron": "44.5.1", "@electron/packager": "20.3.0" }
+}

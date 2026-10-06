@@ -28,3 +28,8 @@ TestResults/
 .env
 .env.*
 !.env.example
+
+# Desktop dependencies and packaged builds
+node_modules/
+release/
+coverage/

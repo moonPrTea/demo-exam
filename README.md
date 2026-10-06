@@ -2,13 +2,54 @@
 
 English version · [Русская версия — полный README на русском](README.ru.md)
 
-Status: requirements and learning methodology; the application is not implemented yet. Updated October 6, 2026.
+Status: working Module 1 prototype plus the longer-term learning specification. Updated October 6, 2026.
 
 The goal is to solve a demonstration exam independently in an unfamiliar domain: understand source data, normalize it in LibreOffice Calc, write SQL in pgAdmin, and build a C# WinForms application in Visual Studio. Producing a ready-made shoe store solution is not the goal.
 
 This is the main English README; [README.ru.md](README.ru.md) is its full Russian counterpart. Both describe the same curriculum, constraints, application concept, and development plan. Update both when requirements change. Previous standalone guides remain available in Git history.
 
 The core principle is transferable understanding, not memorizing an example. The shoe store and supplied files are illustrations only. For any new dataset, the learner must identify row meaning, entities, dependencies, keys, relationships, and rules again. A library, rental service, or training center may need a different model; the reasoning and verification process transfers. Do not assume every task contains products, orders, sizes, or stock.
+
+## Run the prototype
+
+**Forma** is a local Electron desktop application for macOS and Windows. Its Russian-language UI follows the supplied dark workspace references: sidebar navigation, dataset folders, muted violet accents, and compact study cards. It uses plain HTML/CSS/JavaScript and separately tested learning modules, without a backend or account. This trainer is separate from the C#/WinForms exam solution.
+
+Install a current supported Node.js version (22.12 or newer), then run from the repository:
+
+```sh
+npm ci
+npm start
+```
+
+Alternatively, use `Start.command` on macOS (`sh Start.command` from Terminal) or `Start.cmd` on Windows. These scripts install missing npm dependencies on first use and then launch the trainer. The first installation/launch may download Electron and needs internet. Subsequent study sessions are offline; external exam tools are not installed automatically.
+
+Implemented now:
+
+- **Quiz:** 24 questions across five topics, up to eight per round, shuffled answers, hints, explanations, and a record of independent answers.
+- **Generator:** retail (order lines), library (physical copies, loans, multiple authors), and training center (courses, cohorts, enrollments). Choose 20–500 rows, a reproducible variant code, basic or whitespace-cleanup difficulty, and comma/semicolon CSV delimiters.
+- **Exports:** UTF-8 CSV with BOM, a Russian assignment, and variant metadata, saved to a newly created folder. The exported files contain no reference schema or answers. Import leading-zero identifiers as text in Calc.
+- **Selection tasks:** generated combined filters, distinct counts, and date-bounded sums. Conditions and results depend on the variant. Solve them in Calc or SQL; the app checks integer results, not SQL syntax.
+- **Timed practice:** configurable 1–240 minute limit, no pause, saved inputs and checklist, early submission or automatic expiry, then answer review. Closing the window or sleeping the computer does not reset the deadline.
+- **Progress:** local quiz/practice history and four achievements based on completed activity. Normalization is explicitly a self-assessment, not an automatic schema grade.
+
+Local state is stored in the app's browser storage (`forma.v1`). Reinstalling the source project normally leaves the Electron profile intact; deleting app data clears progress. The browser preview has separate storage. This is self-study, not secure proctoring: reference answers exist in the local code. The app blocks its quiz during a timed attempt, but does not restrict other applications or prevent inspecting source code.
+
+Developer commands:
+
+```sh
+npm test               # Pure generator, CSV, quiz, and timer checks
+npm run test:desktop   # Opens a temporary Electron profile; runs UI/export/recovery checks
+npm run preview        # Browser preview at http://127.0.0.1:4173
+npm run package        # Unsigned desktop bundle for the current OS/architecture in release/
+```
+
+The browser preview downloads CSV, assignment, and metadata individually. The desktop app saves them together through a folder picker. Desktop smoke tests write screenshots and test exports to a temporary directory and do not modify the real study profile. Packaging is unsigned; Windows builds and signing should be verified on Windows before distribution.
+
+Source map: `electron/` contains the isolated desktop shell and narrow export API; `src/core/` contains deterministic generators, CSV serialization, quiz content, and timer logic; `src/app.js` contains the UI; `tests/` covers the logic and desktop workflow. The renderer has no Node.js access, cannot navigate to arbitrary pages, and loads local assets only.
+
+Not implemented yet: reading your normalized CSV files back, checking arbitrary database schemas or SQL queries, launching/configuring Calc or PostgreSQL, strict focus restrictions, or modules 2–4. The sections below describe the full intended curriculum; the list above is the current implementation boundary.
+
+Verified on macOS Apple Silicon: all 12 logic tests and the Electron workflow smoke test pass; packaging produces `release/Forma-darwin-arm64/Forma.app`. Open this local bundle in Finder without Node.js. Launching the packaged bundle itself has not been verified through UI automation (macOS computer-control permission was unavailable). Windows runtime testing is still pending.
 
 ## 1. Agreed requirements and open questions
 
@@ -21,7 +62,7 @@ The core principle is transferable understanding, not memorizing an example. The
 | Four application modules | The division below is a proposed learning structure, not yet a verified mapping to official exam modules. |
 | Triggers and other database objects | Include them in extended preparation. Confirm whether they are mandatory, and to what extent, against the current official exam specification and scoring criteria. |
 | Gamified learning without copying | Tasks, explanations, graduated hints, and fresh variants. Do not provide the complete solution to the active assessment. |
-| Current stage | Documentation only. The launcher, application, restrictions, and validation engine do not exist yet. |
+| Current stage | Module 1 quiz, dataset generation/export, timed practice, and local progress are implemented. General schema validation, environment provisioning, and restrictions remain future work. |
 
 ### Sources and their limits
 
@@ -240,7 +281,7 @@ A local open repository cannot guarantee that copying is impossible: users can i
 
 ### 8.1. Launch and environment
 
-Target flow: clone repository → run `Start.cmd` → check environment → choose module → start session. That script does not exist yet.
+Target flow: clone repository → run `Start.cmd` (Windows) or `Start.command` (macOS) → check environment → choose module → start session. The current launchers check for Node.js and start the Module 1 trainer; the complete exam-tool environment check remains planned.
 
 The script checks the environment and starts the trainer. It must not silently install Visual Studio, PostgreSQL, or system policies. Explain missing components and preparation steps. A later installer may run with explicit consent and verified sources and versions.
 
@@ -255,7 +296,7 @@ The machine profile records:
 
 Do not store passwords in Git or globally weaken PowerShell Execution Policy. Verify connection to a practice database, opening the Designer, and building a minimal project with local packages—not just whether application files exist.
 
-A separate local C# process with a simple WinForms interface is the preferred trainer design; choose its target platform after checking the machines. A prepared build avoids building the trainer on every launch. Exam-solution library restrictions remain separate from the trainer's internal implementation.
+The trainer now uses Electron so Module 1 can run on macOS and Windows. The exam application still uses C# WinForms with the Visual Studio visual Designer inside Windows. A prepared trainer bundle avoids building the trainer on every launch. Exam-solution library restrictions remain separate from the trainer's implementation.
 
 ### 8.2. Minimal interface
 
