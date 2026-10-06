@@ -1,327 +1,333 @@
-# Demo Exam — игровой тренажёр подготовки
+# Demo Exam — gamified preparation
 
-Статус: требования и методика; приложение ещё не реализовано. Обновлено 6 октября 2026 года.
+English version · [Русская версия — полный README на русском](README.ru.md)
 
-Цель — самостоятельно проходить демонстрационный экзамен на незнакомой предметной области: понимать исходники, нормализовать данные в LibreOffice Calc, писать SQL в pgAdmin и создавать приложение C# WinForms в Visual Studio. Готовое решение обувного магазина не является целью проекта.
+Status: requirements and learning methodology; the application is not implemented yet. Updated October 6, 2026.
 
-Этот README — единый основной документ: учебная программа, ограничения, концепция приложения и порядок будущей разработки. Старые отдельные руководства заменены им; их версии доступны в истории Git.
+The goal is to solve a demonstration exam independently in an unfamiliar domain: understand source data, normalize it in LibreOffice Calc, write SQL in pgAdmin, and build a C# WinForms application in Visual Studio. Producing a ready-made shoe store solution is not the goal.
 
-## 1. Зафиксированные требования и неизвестные
+This is the main English README; [README.ru.md](README.ru.md) is its full Russian counterpart. Both describe the same curriculum, constraints, application concept, and development plan. Update both when requirements change. Previous standalone guides remain available in Git history.
 
-| Положение | Следствие |
+The core principle is transferable understanding, not memorizing an example. The shoe store and supplied files are illustrations only. For any new dataset, the learner must identify row meaning, entities, dependencies, keys, relationships, and rules again. A library, rental service, or training center may need a different model; the reasoning and verification process transfers. Do not assume every task contains products, orders, sizes, or stock.
+
+## 1. Agreed requirements and open questions
+
+| Requirement | Implication |
 | --- | --- |
-| Нормализацию выполняет ученик | Исходники → самостоятельное выделение сущностей → листы Calc → CSV по таблицам. Тренажёр не раскладывает данные вместо ученика. |
-| SQL пишется самостоятельно | Ученик создаёт БД, таблицы и ограничения в pgAdmin; импорт не заменяет проектирование. |
-| WinForms — через визуальный конструктор Visual Studio | Подтверждено пользователем. Элементы размещаются в Designer, обработчики и логика пишутся на C#. Автоматически созданный `.Designer.cs` — нормальная часть проекта. |
-| Основные инструменты | PostgreSQL, pgAdmin, LibreOffice Calc, Visual Studio, разрешённая версия Npgsql и необходимые зависимости. Не рассчитываем на EF, сторонние UI-библиотеки или интернет. |
-| Четыре модуля приложения | Ниже предложено учебное разделение; оно пока не отождествляется с официальными модулями экзамена. |
-| Триггеры и другие объекты БД | Включаем в расширенную подготовку. Обязательность и объём нужно подтвердить актуальным КОД/КИМ и критериями. |
-| Игровая форма без списывания | Задачи, объяснение решений, ступенчатые подсказки и новые варианты. Не выдаём готовое решение текущей проверочной работы. |
-| Текущий этап | Только документация. Скрипт запуска, приложение, ограничения и проверяющий движок ещё не реализованы. |
+| The learner performs normalization | Source data → independently identified entities → Calc sheets → one CSV per table. The trainer does not split the data for the learner. |
+| The learner writes SQL | Create the database, tables, and constraints in pgAdmin; importing data does not replace schema design. |
+| WinForms uses the Visual Studio visual Designer | Confirmed by the user. Place controls visually; write event handlers and logic in C#. Automatically generated `.Designer.cs` files are expected. |
+| Core tools | PostgreSQL, pgAdmin, LibreOffice Calc, Visual Studio, the permitted Npgsql version and its required dependencies. Do not depend on EF, third-party UI libraries, or internet access. |
+| Four application modules | The division below is a proposed learning structure, not yet a verified mapping to official exam modules. |
+| Triggers and other database objects | Include them in extended preparation. Confirm whether they are mandatory, and to what extent, against the current official exam specification and scoring criteria. |
+| Gamified learning without copying | Tasks, explanations, graduated hints, and fresh variants. Do not provide the complete solution to the active assessment. |
+| Current stage | Documentation only. The launcher, application, restrictions, and validation engine do not exist yet. |
 
-### Основания и границы источников
+### Sources and their limits
 
-- `formuly.docx`, страницы 1–3: изучены текст и скриншоты. Основа — удаление повторов, `ИНДЕКС + ПОИСКПОЗ`, закрепление числовых ID, подготовка дат, «Текст по столбцам», очистка пробелов и экспорт активного листа в CSV.
-- `Прил_ОЗ_КИМ_09.02.07-2-2027.zip`: приложения с предметной областью, ресурсами и стилем. Это учебный пример, не полный регламент с длительностью и оценочной ведомостью. В просмотренном описании нет требования создавать триггеры.
-- [ShoeStore преподавателя](https://github.com/KesinWeb/ShoeStore), версия `d5b5ab4d17e659157fd862cfb7c9ae0d75faf83b`: изучены конфигурация, основные формы, пользовательский контрол, обработка заказа и текстовый SQL-скрипт. Это образец подхода, а не нормативный документ и не безошибочный эталон.
-- Официальная документация инструментов уточняет их поведение. Перед реализацией проверяем применимость описаний к версиям экзаменационного компьютера.
+- `formuly.docx`, pages 1–3: text and screenshots were reviewed. The method covers deduplication, `INDEX + MATCH`, freezing numeric IDs, preparing dates, Text to Columns, whitespace cleanup, and exporting the active sheet to CSV.
+- `Прил_ОЗ_КИМ_09.02.07-2-2027.zip`: domain, resources, and style appendices. These are example materials, not a complete specification with duration and scoring. The reviewed domain description does not require triggers.
+- The teacher's [ShoeStore repository](https://github.com/KesinWeb/ShoeStore), revision `d5b5ab4d17e659157fd862cfb7c9ae0d75faf83b`: project configuration, main forms, a user control, order handling, and the text SQL script were reviewed. This is a teaching reference, not an exam specification or an infallible solution.
+- Official tool documentation clarifies behavior. Verify compatibility with the versions installed on the exam computer before implementation.
 
-Существенное расхождение: приложение 2027 года требует вход только по логину, без пароля; в `AutForm.cs` преподавателя используются логин и пароль. Роли, цвета, таблицы и сценарии берём из текущего задания, а не переносим из чужого проекта.
+A meaningful mismatch: the 2027 appendix requires login without a password, while the teacher's `AutForm.cs` uses both login and password. Derive roles, colors, tables, and workflows from the current task, not from a previous project.
 
-## 2. Четыре учебных модуля
+## 2. Four learning modules
 
-| Модуль | Работа ученика | Результат для проверки |
+| Module | Learner's work | Evidence to check |
 | --- | --- | --- |
-| 1. Данные и нормализация | Разобрать исходники, объяснить связи, подготовить справочники и дочерние таблицы в Calc | Рабочая `.ods`, описание сущностей и ключей, CSV по таблицам, контрольные итоги |
-| 2. PostgreSQL | Написать DDL, импортировать, проверить ограничения; отдельно освоить функции и триггеры | Собственный SQL, учебная БД, проверки целостности и восстановления |
-| 3. C# и WinForms | Собрать формы визуально, написать события, запросы и сценарии | Собирающийся проект, работа с БД, проверки ролей и ввода |
-| 4. Сквозная практика | Выполнить новый вариант от исходников до сдачи с таймером | Решение, тестовый протокол, комплект сдачи, разбор времени и ошибок |
+| 1. Data and normalization | Analyze sources, explain relationships, prepare lookup and child tables in Calc | Working `.ods`, entity/key description, CSV files, reconciliation checks |
+| 2. PostgreSQL | Write DDL, import data, check constraints; separately study functions and triggers | Own SQL, practice database, integrity and restore checks |
+| 3. C# and WinForms | Build forms visually; write events, queries, and workflows | Buildable project, database integration, role and input checks |
+| 4. End-to-end practice | Complete a fresh variant from source files to submission under a timer | Solution, test record, submission package, review of time and errors |
 
-Каждый модуль сочетает короткий блиц и практику в настоящей программе. Викторина не заменяет рабочие CSV, SQL и C#.
+Each module combines a short quiz with work in the actual tools. A quiz does not replace working CSV, SQL, or C# artifacts.
 
-## 3. Модуль 1: нормализация в LibreOffice Calc
+## 3. Module 1: normalization in LibreOffice Calc
 
-### 3.1. Сначала модель, затем формулы
+### 3.1. Model first, formulas second
 
-До редактирования ответить: «Что означает одна строка источника?» Это может быть товар, вариант товара, позиция заказа или смесь сущностей. Одинаковое название не означает одинаковую сущность, а повторяющееся значение не всегда требует отдельного справочника.
+Before editing, answer: “What does one source row represent?” It could be an item, an item variant, a document line, or a mixture of entities. Equal names do not necessarily identify the same entity, and not every repeated value needs its own lookup table.
 
-1. Сохранить исходники без изменений. Создать рабочую `.ods` с исходными листами, промежуточными расчётами, итоговыми таблицами и проверками.
-2. Отметить сущности, атрибуты, события, связи 1:N и M:N. Указать естественные ключи, где они действительно есть.
-3. Объяснить разбиение через зависимости: атомарные значения и отсутствие повторяющихся групп; зависимость неключевых атрибутов от всего составного ключа; отсутствие транзитивных зависимостей неключевых атрибутов. Уметь объяснить 1НФ–3НФ на своих данных.
-4. Для каждой таблицы записать назначение строки, PK, FK, обязательность, уникальность и допустимые значения.
-5. Выполнить преобразование и доказать, что строки, связи и значимые суммы не потерялись.
+1. Preserve unchanged sources. Create a working `.ods` with source sheets, intermediate calculations, final tables, and checks.
+2. Identify entities, attributes, events, 1:N and M:N relationships. Identify natural keys where they genuinely exist.
+3. Explain the decomposition through dependencies: atomic values and no repeating groups; non-key attributes depending on the whole composite key; no transitive dependencies between non-key attributes. Explain 1NF–3NF using the actual data.
+4. Record the row meaning, primary key, foreign keys, required fields, uniqueness rules, and valid values for every table.
+5. Transform the data and demonstrate that records, relationships, and meaningful totals were preserved.
 
-Пример для размышления: модель товара и доступные размеры — не обязательно одна таблица; заголовок заказа и его позиции — разные уровни данных. Цена продажи в позиции может быть историческим фактом, а не копией текущей цены каталога. Решение выводится из требований, а не из запомненной схемы.
+An illustrative question: a product model and its available sizes may belong to different tables; a document header and its lines represent different levels. A sale price on a line may be a historical fact rather than a copy of the current catalog price. Derive the decision from requirements, not a memorized schema.
 
-### 3.2. Метод из `formuly.docx` с уточнениями
+### 3.2. The `formuly.docx` method, with clarifications
 
-**Шаг 1. Очистить значения до удаления повторов.** Проверить крайние и неразрывные пробелы, пустоты, типы, регистр и написание. Не объединять похожие названия автоматически: возможны разные сущности. Сохранить соответствие исходного и исправленного значения. Артикулы и коды с ведущими нулями импортировать как текст.
+**Step 1. Clean values before deduplication.** Check leading, trailing, and non-breaking spaces, blanks, types, case, and spelling. Do not automatically merge similar names: they may describe different entities. Preserve a mapping between original and corrected values. Import identifiers with leading zeros as text.
 
-**Шаг 2. Получить справочники.** Выделить набор признаков, однозначно определяющих запись, и удалить повторы именно по нему. В методичке показаны разные пункты меню для разных версий Calc. Запасной путь для одного столбца: «Данные → Другие фильтры → Стандартный фильтр», непустые значения, «Без повторений», «Копировать результат». Для нескольких полей нельзя удалять повторы отдельно по каждому столбцу: потеряются сочетания.
+**Step 2. Build lookup tables.** Identify the set of attributes that uniquely defines a record, then deduplicate that set. The handout shows different menu commands for different Calc versions. A fallback for one column is Data → More Filters → Standard Filter, non-empty values, No duplications, Copy results. Do not deduplicate each column independently when identity depends on several columns: that destroys combinations.
 
-Сортировка сама по себе не удаляет дубликаты. В расширенном фильтре диапазон условий и диапазон данных имеют разное назначение — не следует механически повторять неоднозначную настройку со скриншота. Удаление повторов в официальном примере Calc чувствительно к регистру. [Справка Calc](https://help.libreoffice.org/latest/en-US/text/scalc/guide/remove_duplicates.html).
+Sorting does not remove duplicates. In an advanced filter, the criteria range and data range serve different purposes; do not mechanically copy an ambiguous screenshot setting. Deduplication in the official Calc example is case-sensitive. [Calc documentation](https://help.libreoffice.org/latest/en-US/text/scalc/guide/remove_duplicates.html).
 
-**Шаг 3. Назначить устойчивые PK.** Присвоить справочнику уникальные ID и закрепить их как значения до перестановок. Если ID уже есть в источнике, проверить их пригодность. Номер строки листа и идентификатор записи — разные понятия.
+**Step 3. Assign stable primary keys.** Assign unique lookup IDs and freeze them as values before reordering. If source IDs already exist, check their suitability. A spreadsheet row number is not a record identifier.
 
-**Шаг 4. Подставить FK через точный поиск.** В справочнике A содержит готовые ID, B — уникальные очищенные значения; в текущем листе C2 — искомое значение:
+**Step 4. Look up foreign keys with an exact match.** On the `Lookup` sheet, column A contains existing IDs and column B contains unique cleaned values. C2 on the current sheet contains the value to find.
+
+This is a LibreOffice Calc formula for preparing data before export, not a formula stored inside a CSV. The English version uses English function and sheet names; CSV files contain the calculated values. The [Russian README](README.ru.md) provides the localized Russian formula.
 
 ```text
-=ИНДЕКС(Справочник.$A$2:$A$100;ПОИСКПОЗ(C2;Справочник.$B$2:$B$100;0))
+=INDEX(Lookup.$A$2:$A$100;MATCH(C2;Lookup.$B$2:$B$100;0))
 ```
 
-- `ПОИСКПОЗ(...;0)` находит позицию точного совпадения в диапазоне названий.
-- `ИНДЕКС` возвращает ID из той же позиции диапазона A. Если найденная строка имеет ID 17, результат — 17, а не её порядковый номер.
-- Диапазоны начинаются с одной строки, имеют одинаковую высоту и закреплены `$`; C2 меняется при протягивании.
-- Диапазон должен включать все данные; 100 здесь только пример границы.
-- При повторяющихся названиях нужен корректный ключ: первое совпадение не разрешает неоднозначность.
-- Ошибка поиска — повод найти потерянного родителя, пробел или неверный тип, а не заменить результат нулём через обработчик ошибок.
+- `MATCH(...;0)` finds the position of an exact match in the name range.
+- `INDEX` returns the ID at the corresponding position in column A. If the matched record has ID 17, the result is 17, not its position in the sheet.
+- Both ranges start on the same row, have equal heights, and use `$` to keep them fixed. C2 changes when filling down.
+- Include the entire dataset; 100 is only an example boundary.
+- Repeated names require a valid key: returning the first match does not resolve ambiguity.
+- A lookup error is a reason to investigate a missing parent, whitespace, or a type mismatch, not to silently replace the error with zero.
 
-Названия функций и разделители зависят от настроек Calc; английские имена — `INDEX` и `MATCH`. Для ключей со знаками `*`, `?` и другими специальными символами проверить настройки шаблонов/регулярных выражений: ключ должен трактоваться буквально. [Функции поиска Calc](https://help.libreoffice.org/latest/en-US/text/scalc/01/04060109.html).
+Function names and separators depend on Calc settings. This example requires English function names and uses semicolons as argument separators. For keys containing `*`, `?`, or other special characters, check wildcard/regular-expression settings: the key must be interpreted literally. [Calc lookup functions](https://help.libreoffice.org/latest/en-US/text/scalc/01/04060109.html).
 
-**Шаг 5. Закрепить экспортируемые значения.** Как в методичке: копировать рассчитанные числовые FK и вставить специально как числа в экспортную копию листа. Рабочую `.ods` с формулами сохранить отдельно. Текстовые коды вставлять как значения с сохранением текста, иначе потеряются ведущие нули. После присвоения FK нельзя перенумеровывать справочник независимо от дочерних таблиц.
+**Step 5. Freeze exported values.** Following the handout, copy calculated numeric foreign keys and Paste Special as numbers into an export copy of the sheet. Keep the working `.ods` with formulas separately. Paste text identifiers as text values to preserve leading zeros. Once foreign keys have been assigned, do not renumber the parent independently of its children.
 
-**Шаг 6. Подготовить даты и составные ячейки.** На скриншоте методички дата имеет формат `YYYY-MM-DD`, например `1999-12-01`. Формат отображения не превращает произвольный текст в настоящую дату: сначала распознать день, месяц и год и проверить неоднозначные значения.
+**Step 6. Prepare dates and compound cells.** The handout screenshot uses `YYYY-MM-DD`, for example `1999-12-01`. Changing display formatting does not convert arbitrary text into a real date: first parse the day, month, and year, and check ambiguous cases.
 
-«Текст по столбцам» помогает разобрать исходник, но не завершает нормализацию. Для ячейки `A112T4, 2, F635R4, 2` после разделения нужны две строки состава с ID одного заказа: `(заказ, A112T4, 2)` и `(заказ, F635R4, 2)`. Проверить чётность пар, пустые элементы и количества. ФИО нельзя безусловно разбивать ровно на три слова и использовать как уникальный ключ человека.
+Text to Columns helps parse the source but does not complete normalization. Splitting `A112T4, 2, F635R4, 2` must eventually produce two detail rows with the same parent ID: `(document, A112T4, 2)` and `(document, F635R4, 2)`. Check pair counts, empty elements, and quantities. Do not assume a full name always contains exactly three words or uniquely identifies a person.
 
-**Шаг 7. Экспортировать каждую итоговую таблицу.** Сохранить рабочую книгу, затем активный лист — как «Текст CSV», UTF-8. Для каждой таблицы — отдельный файл; CSV не хранит набор листов. Зафиксировать заголовок, разделитель полей, кавычки, представление пустых значений, чисел и дат. На скриншоте разделитель — запятая, а не обязательная для всех случаев точка с запятой. Экспорт должен совпадать с настройками импорта в pgAdmin.
+**Step 7. Export each final table.** Save the workbook, then export the active sheet as Text CSV, UTF-8. Use one file per table; CSV does not contain multiple sheets. Specify the header, field delimiter, quotation marks, empty values, numbers, and dates. The screenshot uses a comma delimiter, not a universally required semicolon. Export settings must match the pgAdmin import settings.
 
-Проверить сырой CSV и пробный импорт: десятичная запятая не должна разделить столбцы; даты — стать непонятным локальным текстом; код — числом; текст с запятой, кавычкой или переносом — несколькими записями. Различать SQL `NULL`, пустую строку и ноль. Итоги, формулы, служебные колонки и декоративные заголовки не входят в экспортную таблицу.
+Inspect the raw CSV and perform a trial import. A decimal comma must not split columns, dates must remain interpretable, identifiers must retain their text representation, and quoted text containing delimiters or line breaks must remain intact. Distinguish SQL `NULL`, an empty string, and zero. Exclude totals, formulas, helper columns, and decorative headings from the exported table.
 
-### 3.3. План A и запасные варианты
+### 3.3. Plan A and alternatives
 
-| Подход | Когда применять | Обязательные условия |
+| Approach | When to use it | Required safeguards |
 | --- | --- | --- |
-| A: справочники + точный поиск | Основной способ, отрабатываемый до уверенного выполнения | Самостоятельная модель, стабильные ID, проверки |
-| B: копирование полей + фильтр без повторов | Малый набор данных или отсутствие новой команды удаления дублей | Точная подстановка FK и те же проверки; не угадывание ID |
-| C: собственный макрос Calc | Позже, если разрешён регламентом и понятен ученику | Проверка результата и умение повторить без макроса |
+| A: lookup tables + exact-match formulas | Main method to practice until confident | Independent modeling, stable IDs, verification |
+| B: copy selected fields + deduplication filter | Small datasets or older Calc versions without the newer duplicate command | Exact foreign-key lookup and the same checks; no guessed IDs |
+| C: a self-written Calc macro | Later, only if permitted and understood | Verify the result and be able to repeat the process without it |
 
-Excel VBA и LibreOffice Basic не считаются взаимозаменяемыми. На старте макросы не нужны: сначала освоить метод из методички. Автоматизация не должна выбирать сущности и писать итоговую схему вместо ученика.
+Excel VBA and LibreOffice Basic are not interchangeable. Start without macros and master the handout's method first. Automation must not choose entities or write the final schema instead of the learner.
 
-### 3.4. Условие завершения
+### 3.4. Completion criteria
 
-- Объяснены смысл строки и ключ каждой таблицы; дубликатов PK и необъяснимых пустот нет.
-- Каждый обязательный FK ссылается на одного родителя; ошибки поиска не скрыты.
-- Сверены число документов, число позиций, количества и суммы, где это имеет смысл. Сумма строк всех нормализованных таблиц не обязана равняться числу строк исходника.
-- Для составных ячеек сверено число развёрнутых элементов; потерянных и случайно повторённых позиций нет.
-- CSV повторно прочитаны; типы, кириллица, даты и коды сохранены.
-- Ученик объясняет выбор таблиц и повторяет метод на новой теме без готового разбиения.
+- Explain each table's row meaning and key; no duplicate primary keys or unexplained blanks remain.
+- Every required foreign key references one parent; lookup errors are not hidden.
+- Reconcile document counts, detail counts, quantities, and totals where meaningful. The combined row count of all normalized tables need not equal the source row count.
+- Reconcile the elements expanded from compound cells; no details are lost or accidentally duplicated.
+- Reopen the CSV files and confirm types, Cyrillic text, dates, and identifiers.
+- Explain the table choices and repeat the method in another domain without being given the decomposition.
 
-## 4. Модуль 2: создание БД и SQL
+## 4. Module 2: database creation and SQL
 
-### 4.1. Базовая программа
+### 4.1. Core curriculum
 
-1. Отличать PostgreSQL-сервер, БД, схему, таблицу, роль и pgAdmin как клиент.
-2. Создать учебную БД и самостоятельно написать SQL таблиц: типы, PK, `NOT NULL`, `UNIQUE`, FK, `CHECK`, правила удаления. Не добавлять каскадное удаление без понимания последствий.
-3. Выбирать типы по смыслу: деньги — точный `numeric`, дата — `date`, артикул — текст, количество — подходящий числовой тип с ограничением.
-4. Импортировать родителей до детей. Указать порядок столбцов, заголовок, UTF-8, разделители и NULL. Проверить настройки и журнал установленного pgAdmin. [Диалог Import/Export](https://www.pgadmin.org/docs/pgadmin4/latest/import_export_data.html).
-5. При импорте готовых ID в таблицу с sequence/identity согласовать генератор со вставленными значениями. Проверить вставку с автоматически выданным ID; учесть режим identity в выбранной версии PostgreSQL.
-6. Написать проверки дублей, отсутствующих родителей, обязательных значений, количеств и сумм. Сверить с Calc.
-7. Освоить `JOIN`, `LEFT JOIN`, `GROUP BY`, агрегаты, поиск, сортировку, фильтрацию и изменение данных. Различать `WHERE` и `HAVING`.
-8. Освоить транзакцию: связанные изменения фиксируются вместе либо откатываются. Ошибка на середине не оставляет половину документа.
-9. Сохранить SQL и резервную копию; проверить восстановление в отдельную учебную БД. SQL-скрипт и архив восстановления — разные форматы; расширение файла не гарантирует формат.
+1. Distinguish the PostgreSQL server, database, schema, table, role, and pgAdmin client.
+2. Create a practice database and write table SQL independently: types, primary keys, `NOT NULL`, `UNIQUE`, foreign keys, `CHECK`, and deletion rules. Do not enable cascading deletion without understanding its consequences.
+3. Choose types by meaning: exact `numeric` for money, `date` for dates, text for identifiers, and an appropriate constrained numeric type for quantities.
+4. Import parents before children. Specify column order, headers, UTF-8, delimiters, and NULL handling. Check the settings and import log in the installed pgAdmin version. [Import/Export dialog](https://www.pgadmin.org/docs/pgadmin4/latest/import_export_data.html).
+5. After importing explicit IDs into a sequence/identity-backed column, align the generator with the imported values. Test an insert with an automatically generated ID; account for the identity mode in the installed PostgreSQL version.
+6. Write checks for duplicates, missing parents, required values, quantities, and totals. Reconcile with Calc.
+7. Learn `JOIN`, `LEFT JOIN`, `GROUP BY`, aggregates, search, sorting, filtering, and data changes. Distinguish `WHERE` from `HAVING`.
+8. Learn transactions: related changes commit together or roll back. An error halfway through must not leave a partial document.
+9. Save SQL and a backup, then test restoration into a separate practice database. A SQL script and a restore archive are different formats; a filename extension does not guarantee the format.
 
-Тренажёр указывает класс ошибки и контрпример, но не подменяет самостоятельный DDL автоматически созданными таблицами. Чужой дамп не засчитывается как создание собственной БД.
+The trainer identifies the error category and a counterexample, but does not replace the learner's DDL with generated tables. Restoring somebody else's dump does not count as creating a database independently.
 
-### 4.2. Функции, представления и триггеры
+### 4.2. Functions, views, and triggers
 
-Это отдельная учебная ветка, пока не подтверждённая как обязательная часть конкретного экзамена:
+This is a separate learning branch, not yet confirmed as mandatory for the specific exam:
 
-- Сначала решать правила средствами `NOT NULL`, `UNIQUE`, FK и `CHECK`, когда это подходит. Не заменять простое ограничение триггером.
-- Разобрать представление, обычную функцию, процедуру и триггер: кто вызывает, что возвращается, где выполняется правило.
-- Изучить функцию `RETURNS trigger`, `NEW`, `OLD`, `TG_OP`, `BEFORE`/`AFTER`, `FOR EACH ROW`/`STATEMENT`, `INSERT`/`UPDATE`/`DELETE` и поведение `RETURN`.
-- Начать с небольшого аудита изменения; затем переходить к остаткам или статусам, если это соответствует заданию.
+- First enforce rules with `NOT NULL`, `UNIQUE`, foreign keys, and `CHECK` where appropriate. Do not replace a simple constraint with a trigger.
+- Compare views, ordinary functions, procedures, and triggers: what invokes them, what they return, and where the rule executes.
+- Study functions returning `trigger`, `NEW`, `OLD`, `TG_OP`, `BEFORE`/`AFTER`, `FOR EACH ROW`/`STATEMENT`, `INSERT`/`UPDATE`/`DELETE`, and `RETURN` behavior.
+- Start with a small change-audit exercise; move to stock or status rules only when relevant to the task.
 
-Триггер привязан к событию и вызывает триггерную функцию. Построчный и операторный режимы имеют разную частоту вызовов; триггер на `SELECT` создать нельзя. Синтаксис сверяется с установленной версией. [PostgreSQL: CREATE TRIGGER](https://www.postgresql.org/docs/current/sql-createtrigger.html).
+A trigger is associated with an event and invokes a trigger function. Row-level and statement-level triggers have different invocation frequencies; a trigger on `SELECT` is not supported. Check syntax against the installed version. [PostgreSQL: CREATE TRIGGER](https://www.postgresql.org/docs/current/sql-createtrigger.html).
 
-Для остатков тестировать добавление, изменение количества, замену позиции, удаление/отмену, недостаточный остаток, откат и конкурирующие операции. При изменении количества учитывать разницу старого и нового, а не повторно списывать всё. Не списывать запас одновременно в C# и триггере. Перед импортом истории определить, отражены ли заказы уже в исходных остатках. Это проектные вопросы, а не повод включать такой триггер в любую БД.
+For a stock exercise, test insertion, quantity changes, changing the referenced item, deletion/cancellation, insufficient stock, rollback, and concurrent operations. Account for the difference between old and new quantities rather than subtracting the full amount again. Do not deduct stock in both C# and a trigger. Before importing historical documents, establish whether their effects are already reflected in source stock values. These are modeling questions, not reasons to add a stock trigger to every database.
 
-### 4.3. Условие завершения
+### 4.3. Completion criteria
 
-БД создаётся с нуля по собственному SQL, импорт не требует отключать ограничения, ошибочные данные отклоняются, контрольные запросы подтверждают целостность. Ученик объясняет типы и правила. В ветке триггеров проходят проверки событий и отката: наличия объекта в pgAdmin недостаточно.
+The learner's SQL creates the database from scratch; imports do not require disabling constraints; invalid data is rejected; verification queries confirm integrity. The learner explains types and rules. The trigger branch requires event and rollback tests, not merely an object visible in pgAdmin.
 
-## 5. Модуль 3: визуальный WinForms и осмысленный C#
+## 5. Module 3: visual WinForms and thoughtful C#
 
-### 5.1. Ограничение процесса
+### 5.1. Workflow constraint
 
-Формы и шаблоны `UserControl` создаются через визуальный конструктор Visual Studio: элементы, имена, свойства, расположение, привязки и события. Обработчики, проверки, работа с данными и вспомогательные классы пишутся на C#.
+Create forms and `UserControl` templates using the Visual Studio visual Designer: controls, names, properties, layout, bindings, and events. Write handlers, validation, data access, and helper classes in C#.
 
-- Не заменять Designer ручным построением всего интерфейса через `new Button`, координаты и `Controls.Add` в конструкторе формы.
-- Не редактировать `.Designer.cs` вручную как основной способ разработки. `InitializeComponent()` и сгенерированный файл сохраняются.
-- Допустимо во время работы создавать экземпляры карточки, чей шаблон сделан визуально, и помещать их в `FlowLayoutPanel`. Динамические данные не требуют рисовать каждую карточку заново кодом.
-- Конструктор формы выполняет инициализацию и принимает контекст. Загрузка БД не должна ломать открытие Designer; длительные действия не должны замораживать интерфейс.
+- Do not replace the Designer by constructing the entire interface with `new Button`, coordinates, and `Controls.Add` in a form constructor.
+- Do not manually edit `.Designer.cs` as the main UI development method. Preserve `InitializeComponent()` and generated files.
+- Runtime instances of a visually designed card may be added to a `FlowLayoutPanel`. Dynamic data does not require coding each card's layout from scratch.
+- Constructors initialize the form and accept context. Database loading must not break the Designer; long-running work must not freeze the interface.
 
-### 5.2. Порядок изучения и реализации
+### 5.2. Learning and implementation order
 
-1. **C#:** типы, `null`, условия, циклы, методы, классы, коллекции, события, исключения и `using`. Упражнения связаны с обработчиками, а не только с терминологией.
-2. **Запуск:** новый проект, форма в Designer, кнопка и событие, сборка и запуск.
-3. **Соединение:** строка подключения вне публикуемых секретов; один запрос; диагностика недоступной БД без вывода пароля.
-4. **Список:** чтение, отображение, пустой результат, отсутствующая картинка, освобождение reader/connection и изображений при обновлении.
-5. **Поиск, сортировка, фильтр:** согласованное состояние без взаимного сброса. Значения — параметры SQL, поля и направление сортировки — выбор из разрешённого набора.
-6. **Справочники:** `DisplayMember`, `ValueMember`, `SelectedValue`; подпись, позиция в списке и ID не равны друг другу.
-7. **Добавление и редактирование:** обязательность, `TryParse`, диапазоны, `DBNull`, деньги через `decimal`. Параметризованные команды, обновление после успеха.
-8. **Составная операция:** заголовок и позиции в одной транзакции; ID получать от БД, а не через `MAX(id) + 1`.
-9. **Роли:** матрица из задания. Проверять разрешение при выполнении действия, а не только скрывать кнопку. Выход из роли не оставляет старый доступ.
-10. **Сдача:** текущий стиль, заголовки, логотип, иконка и подсветка; ресурсы и запуск вне папки разработки.
+1. **C#:** types, `null`, conditions, loops, methods, classes, collections, events, exceptions, and `using`. Connect exercises to handlers, not just terminology.
+2. **First run:** new project, a visually designed form, a button and event, build and run.
+3. **Connection:** keep credentials out of published files; execute one query; report unavailable databases without exposing passwords.
+4. **List:** read and display data; handle empty results and missing images; dispose readers, connections, and images appropriately when refreshing.
+5. **Search, sorting, filtering:** shared consistent state without resetting unrelated choices. Parameterize values; select column names and sort directions from an allowlist.
+6. **Lookup controls:** `DisplayMember`, `ValueMember`, `SelectedValue`; the displayed label, list position, and database ID are different things.
+7. **Create and edit:** required fields, `TryParse`, ranges, `DBNull`, and `decimal` for money. Use parameterized commands and refresh after success.
+8. **Multi-step operations:** header and lines in one transaction; obtain IDs from the database, not `MAX(id) + 1`.
+9. **Roles:** derive the permission matrix from the task. Check permissions when executing actions, not just by hiding buttons. Signing out must remove previous access.
+10. **Submission:** current style, titles, logo, icon, and highlighting; verify resources and execution outside the development folder.
 
-Для старой разрешённой версии Npgsql используем совместимый API: `NpgsqlConnection`, `NpgsqlCommand`, параметры, reader, транзакция. Не требуем `NpgsqlDataSource`, появившийся в Npgsql 7. Синтаксис C# должен поддерживаться выбранным компилятором. [Npgsql: подключения, параметры и транзакции](https://www.npgsql.org/doc/basic-usage.html).
+For an older permitted Npgsql version, use compatible APIs: `NpgsqlConnection`, `NpgsqlCommand`, parameters, readers, and transactions. Do not require `NpgsqlDataSource`, introduced in Npgsql 7. C# syntax must also be supported by the selected compiler. [Npgsql: connections, parameters, and transactions](https://www.npgsql.org/doc/basic-usage.html).
 
-### 5.3. Что берём из репозитория преподавателя
+### 5.3. Lessons from the teacher's repository
 
-Ссылки закреплены на просмотренном коммите, чтобы будущие изменения не меняли смысл сравнения.
+Links are pinned to the reviewed commit so later changes do not alter the comparison.
 
-| Наблюдение | Решение для обучения |
+| Observation | Teaching decision |
 | --- | --- |
-| [Проект](https://github.com/KesinWeb/ShoeStore/blob/d5b5ab4d17e659157fd862cfb7c9ae0d75faf83b/ShoeStore/ShoeStore.csproj) использует .NET Framework 4.8; [пакеты](https://github.com/KesinWeb/ShoeStore/blob/d5b5ab4d17e659157fd862cfb7c9ae0d75faf83b/ShoeStore/packages.config) содержат Npgsql 8.0.3 | Это профиль примера, не подтверждённая комплектация экзамена. Наш профиль согласуем отдельно. |
-| [AutForm](https://github.com/KesinWeb/ShoeStore/blob/d5b5ab4d17e659157fd862cfb7c9ae0d75faf83b/ShoeStore/Forms/AutForm.cs) использует визуальную форму, события и параметры | Берём связь «элемент → событие → проверка → запрос → переход», не переносим автоматически вход по паролю. |
-| [MainForm](https://github.com/KesinWeb/ShoeStore/blob/d5b5ab4d17e659157fd862cfb7c9ae0d75faf83b/ShoeStore/Forms/MainForm.cs) заполняет карточки и объединяет параметры загрузки | Учим переиспользовать визуальный контрол и согласовывать фильтр, поиск и сортировку. |
+| The [project](https://github.com/KesinWeb/ShoeStore/blob/d5b5ab4d17e659157fd862cfb7c9ae0d75faf83b/ShoeStore/ShoeStore.csproj) targets .NET Framework 4.8; its [packages](https://github.com/KesinWeb/ShoeStore/blob/d5b5ab4d17e659157fd862cfb7c9ae0d75faf83b/ShoeStore/packages.config) include Npgsql 8.0.3 | This is the example's environment, not confirmed exam tooling. Agree on our environment separately. |
+| [AutForm](https://github.com/KesinWeb/ShoeStore/blob/d5b5ab4d17e659157fd862cfb7c9ae0d75faf83b/ShoeStore/Forms/AutForm.cs) uses a visual form, events, and parameters | Teach control → event → validation → query → navigation, without automatically adopting password login. |
+| [MainForm](https://github.com/KesinWeb/ShoeStore/blob/d5b5ab4d17e659157fd862cfb7c9ae0d75faf83b/ShoeStore/Forms/MainForm.cs) populates cards and combines loading options | Teach reusable visual controls and coordinated filtering, search, and sorting. |
 
-Темы упражнений из просмотренного кода: интерполяция пользовательских значений в SQL и чтение поискового текста через `KeyDown` в `MainForm`; ID как `SelectedIndex + 1` и вставки заголовка и позиций без общей транзакции в [обработке заказа](https://github.com/KesinWeb/ShoeStore/blob/d5b5ab4d17e659157fd862cfb7c9ae0d75faf83b/ShoeStore/Controls/AddZakazPanelRedact.cs). Нужны параметры, подходящее событие изменения текста, настоящий выбранный ID и атомарное сохранение. Тест с ID 3 и 17 ловит ошибку индекса списка.
+Debugging exercises from the reviewed code include interpolated user values in SQL and reading search text through `KeyDown` in `MainForm`; IDs calculated as `SelectedIndex + 1` and separate header/detail inserts without a shared transaction in [order handling](https://github.com/KesinWeb/ShoeStore/blob/d5b5ab4d17e659157fd862cfb7c9ae0d75faf83b/ShoeStore/Controls/AddZakazPanelRedact.cs). Teach parameters, an appropriate text-change event, real selected IDs, and atomic saving. A test with IDs 3 and 17 catches the list-index mistake.
 
-В просмотренном текстовом SQL-скрипте собственные триггеры не определены. Это не доказывает их отсутствие во всех материалах и не определяет требования экзамена. Полное восстановление бинарного дампа здесь не выполнялось. Код преподавателя целиком не переносим.
+The reviewed text SQL script does not define custom triggers. This does not prove their absence from every resource or establish exam requirements. The binary dump was not fully restored during this review. Do not copy the teacher's project wholesale.
 
-### 5.4. Условие завершения
+### 5.4. Completion criteria
 
-Ученик самостоятельно создаёт форму в Designer, связывает событие с обработчиком, объясняет запрос и исправляет небольшой дефект на новых данных. Проект собирается с разрешёнными пакетами. Проверены пустой список, неверный ввод, каждая роль, совместная работа поиска и фильтра, недоступная БД и откат составной операции. Проверка функциональности дополняется демонстрацией работы с визуальным конструктором.
+The learner independently creates a form in the Designer, connects an event to a handler, explains a query, and fixes a small defect using fresh data. The project builds with permitted packages. Check empty lists, invalid input, every role, combined search/filter behavior, unavailable databases, and rollback of multi-step operations. Functional checks are supplemented by a demonstration of using the visual Designer.
 
-## 6. Модуль 4: работа на время
+## 6. Module 4: timed practice
 
-Вариант начинается с новой предметной области, исходников и требований, а не с готовой схемы:
+A variant starts with an unfamiliar domain, source files, and requirements, not a completed schema:
 
-1. Выписать сущности, обязательные сценарии, роли, стиль и комплект сдачи.
-2. Подготовить и проверить данные до импорта.
-3. Создать БД, импортировать и проверить целостность.
-4. Сделать минимальный работающий сценарий: чтение из БД → форма → корректное действие.
-5. Добавить остальные обязательные сценарии и оформление.
-6. Пройти положительные и отрицательные тесты; проверить комплект сдачи.
-7. Разобрать причины ошибок: модель, синтаксис, невнимательность, среда или распределение времени.
+1. Identify entities, required workflows, roles, style, and submission artifacts.
+2. Prepare and check data before importing it.
+3. Create the database, import, and verify integrity.
+4. Build a minimal working scenario: database read → form → correct action.
+5. Add the remaining required scenarios and styling.
+6. Run positive and negative tests; check the submission package.
+7. Review causes of mistakes: modeling, syntax, attention, environment, or time allocation.
 
-До получения официальной длительности таймер настраиваемый, без выдуманного «экзаменационного» лимита. Сначала замеряем этапы, затем сокращаем свои узкие места. Резерв на проверку выделяем заранее, но не выдаём учебный ориентир за норматив.
+Until the official duration is known, the timer is configurable; do not invent an “official exam” limit. Measure stages first, then improve personal bottlenecks. Reserve time for verification without presenting a practice target as an official rule.
 
-Экономия времени: ранняя проверка среды, постоянный порядок действий, понятные имена элементов, общий метод обновления списка, точные FK, пробный импорт и проверка пустого сценария. Не экономим за счёт отключения ограничений, непроверенных ID или готовой чужой схемы.
+Time-saving habits: early environment checks, a consistent workflow, meaningful control names, a shared list-refresh method, exact foreign-key mapping, a trial import, and empty-state tests. Do not trade correctness for disabled constraints, guessed IDs, or a copied schema.
 
-## 7. Игровая механика без зубрёжки
+## 7. Gamification without rote memorization
 
-### 7.1. Основной цикл
+### 7.1. Learning loop
 
-Ситуация → прогноз результата → собственное действие в рабочей программе → проверка → объяснение → новый случай → отложенное повторение.
+Situation → prediction → independent action in the real tool → validation → explanation → fresh case → spaced review.
 
-Викторины занимают небольшую часть занятия. Главное продвижение дают практика и исправление ошибок. В вариантах меняются не только названия: появляются пропуски ID, составные ключи, пустоты, несколько позиций и неоднозначные названия.
+Quizzes occupy a small part of each session. Progress comes mainly from practice and fixing mistakes. Variants change more than names: introduce non-contiguous IDs, composite keys, blanks, multiple details, and ambiguous labels.
 
-| Формат | Пример | Признак понимания |
+| Format | Example | Evidence of understanding |
 | --- | --- | --- |
-| Блиц | Чем PK отличается от номера строки Calc? | Объяснение и контрпример |
-| Найди ошибку | Поиск FK работает до сортировки | Исправление выдержало перестановку |
-| Предскажи результат | Что будет при FK без родителя? | Прогноз и проверка в учебной БД |
-| Миссия | Развернуть пары «код, количество» | Сохранены связи, позиции и количества |
-| Отладка C# | Второй элемент списка имеет ID 17 | Работа с непоследовательными ID |
-| Целостность | Ошибка при сохранении второй позиции | После отката нет половины документа |
+| Blitz quiz | How does a primary key differ from a Calc row number? | Explanation and counterexample |
+| Find the defect | A foreign-key lookup breaks after sorting | The fix survives reordering |
+| Predict the result | What happens when a foreign key has no parent? | Prediction confirmed in a practice database |
+| Mission | Expand code/quantity pairs | Relationships, details, and quantities preserved |
+| C# debugging | The second list item has ID 17 | Correct handling of non-contiguous IDs |
+| Integrity challenge | Saving the second detail fails | Rollback leaves no partial document |
 
-### 7.2. Режимы и подсказки
+### 7.2. Modes and hints
 
-- **Обучение:** уровень 1 — вопрос о причине; уровень 2 — нужное понятие или действие; уровень 3 — маленький аналогичный пример на других данных. Полного решения активного задания нет.
-- **Закрепление:** ограниченные подсказки, новый вариант, отчёт о самостоятельности. Ошибка не обнуляет обучение.
-- **Пробный экзамен:** подсказки и эталон закрыты до сдачи; доступны только ресурсы экзаменационного профиля. Аварийный выход доступен всегда и помечает попытку прерванной, а не стирает её.
-- **Разбор:** после сдачи — причина ошибки, контрпример и сравнение подходов; затем свежая задача без подсказки.
+- **Learning:** level 1 asks a diagnostic question; level 2 points to a concept or action; level 3 gives a small analogous example using different data. No complete solution to the active task.
+- **Reinforcement:** limited hints, a fresh variant, and an independence report. Errors do not erase learning progress.
+- **Mock exam:** hints and reference answers remain unavailable until submission; only resources permitted by the selected exam profile are accessible. Emergency exit is always available and marks the attempt interrupted rather than deleting it.
+- **Review:** after submission, explain causes, counterexamples, and alternative approaches; then require a fresh task without hints.
 
-Разделить XP за активность и освоение навыка. Предлагаемое правило освоения: два самостоятельных успешных варианта и позднее повторение; это настройка тренажёра, не экзаменационная оценка. Ответ с подсказкой ещё не подтверждает самостоятельное владение.
+Separate activity XP from skill mastery. A proposed mastery rule is two independently completed variants plus a later review; this is a trainer setting, not an exam grade. Success with a hint does not yet establish independence.
 
-Достижения: «Ни одного потерянного FK», «Новая тема — та же логика», «Откат без следов», «Нашёл причину до исправления», «Проверил восстановление». Награда за скорость — только после правильности. Не делать серии посещений и штрафы за пропуск главным стимулом.
+Achievements can include “No Missing Foreign Keys,” “New Domain, Same Reasoning,” “Clean Rollback,” “Cause Found Before Fixing,” and “Restore Verified.” Speed rewards require correctness first. Attendance streaks and missed-day penalties must not become the main incentive.
 
-В локальном открытом репозитории нельзя гарантировать отсутствие списывания: пользователь видит файлы, а IDE позволяет исполнять код. Цель — честная самопроверка, отложенный разбор и перенос навыка, а не обещание защищённого прокторинга.
+A local open repository cannot guarantee that copying is impossible: users can inspect files and execute code through the IDE. The objective is honest self-assessment, deferred review, and transferable skills, not a claim of secure proctoring.
 
-## 8. Windows-приложение
+## 8. Windows application
 
-### 8.1. Запуск и среда
+### 8.1. Launch and environment
 
-Целевой сценарий: клонировать репозиторий → запустить `Start.cmd` → проверить среду → выбрать модуль → начать занятие. Сейчас такого скрипта нет.
+Target flow: clone repository → run `Start.cmd` → check environment → choose module → start session. That script does not exist yet.
 
-Скрипт проверяет среду и запускает тренажёр. Он не должен молча устанавливать Visual Studio, PostgreSQL или системные политики. Если компонента нет, показать нужную комплектацию и порядок подготовки. Позднее возможна установка с явным согласием и проверкой источников и версий.
+The script checks the environment and starts the trainer. It must not silently install Visual Studio, PostgreSQL, or system policies. Explain missing components and preparation steps. A later installer may run with explicit consent and verified sources and versions.
 
-Профиль компьютера фиксирует:
+The machine profile records:
 
-- Windows и пути к программам;
-- Visual Studio, workload классических .NET-приложений, целевой framework и targeting/developer pack;
-- PostgreSQL-сервер отдельно от pgAdmin, параметры учебного подключения;
-- LibreOffice, язык функций, разделители и CSV;
-- точную версию Npgsql и все зависимости для восстановления без сети;
-- разрешённую справку, подсказки и лимиты времени.
+- Windows and application paths;
+- Visual Studio, the .NET desktop development workload, target framework, and targeting/developer pack;
+- the PostgreSQL server separately from pgAdmin, plus practice connection settings;
+- LibreOffice, function language, separators, and CSV settings;
+- the exact Npgsql version and all dependencies needed for offline restore;
+- permitted documentation, hints, and time limits.
 
-Пароли не хранятся в Git. Никакого глобального ослабления PowerShell Execution Policy. Проверка подтверждает подключение к учебной БД, открытие Designer и сборку минимального проекта с локальными пакетами, а не только наличие программ.
+Do not store passwords in Git or globally weaken PowerShell Execution Policy. Verify connection to a practice database, opening the Designer, and building a minimal project with local packages—not just whether application files exist.
 
-Для тренажёра предпочтителен отдельный локальный C#-процесс с простым WinForms-интерфейсом; платформу выбираем после проверки компьютеров. Готовая сборка избавит от сборки самого тренажёра при запуске. Ограничения библиотек экзаменационного решения сохраняются независимо от устройства тренажёра.
+A separate local C# process with a simple WinForms interface is the preferred trainer design; choose its target platform after checking the machines. A prepared build avoids building the trainer on every launch. Exam-solution library restrictions remain separate from the trainer's internal implementation.
 
-### 8.2. Минимальный интерфейс
+### 8.2. Minimal interface
 
-Главное окно: четыре модуля, продолжение занятия, прогресс. Во время работы — компактная панель: цель, таймер, «Открыть инструмент», «Подсказка», «Проверить», «Завершить» и заметный выход. Достижения показываются после этапа, не перекрывают редактор.
+The main window shows four modules, resume, and progress. During work, display a compact panel with the objective, timer, Open Tool, Hint, Check, Finish, and a visible exit. Show achievements after a stage without covering the editor.
 
-Calc, pgAdmin и Visual Studio остаются самостоятельными программами. Тренажёр открывает файл или инструмент и проверяет результат; он не встраивает полноценную IDE. Таймер измеряет прошедшее время независимо от перерисовки окна, сохраняет контрольные точки и отмечает паузу/перезапуск согласно режиму. Истечение времени не закрывает редакторы и не уничтожает работу.
+Calc, pgAdmin, and Visual Studio remain independent applications. The trainer opens a file or tool and validates the result; it does not embed an entire IDE. Measure elapsed time independently of window repainting, save checkpoints, and record pauses/restarts according to the mode. Reaching the time limit must not close editors or destroy work.
 
-### 8.3. Концентрация и безопасный выход
+### 8.3. Focus mode and safe exit
 
-Первая версия — добровольный мягкий режим: по включению замечает переключение в неподходящую программу и напоминает о занятии. Не завершает чужие процессы, не перехватывает весь ввод и не скрывает системные средства восстановления. Это ограниченная первая реализация желаемой блокировки, а не её эквивалент.
+The first version provides voluntary soft focus: when enabled, detect switching to an unrelated application and show a reminder. Do not terminate other processes, intercept all input, or hide system recovery tools. This is a limited first step toward the requested blocking feature, not equivalent enforcement.
 
-Разрешённые приложения задаются для модуля: Calc; pgAdmin и нужные компоненты PostgreSQL; Visual Studio, сборщик, отладчик и учебное приложение; проводник, файловые диалоги, системные настройки и специальные возможности. Учитывать дочерние процессы. Разрешённый браузер с pgAdmin не ограничивает остальные сайты — белый список процессов этого не решает.
+Allow applications per module: Calc; pgAdmin and necessary PostgreSQL components; Visual Studio, build tools, debugger, and the learner's application; file explorer, file dialogs, system settings, and accessibility tools. Account for child processes. Allowing a browser for pgAdmin does not restrict its other sites; a process allowlist cannot solve that.
 
-Предварительная комбинация выхода — `Ctrl+Alt+Shift+Q`, с проверкой доступности и заменой при конфликте. До включения пользователь видит и проверяет сочетание. Если зарегистрировать его нельзя, ограниченный режим не запускается.
+The provisional exit shortcut is `Ctrl+Alt+Shift+Q`, checked for availability and replaced if it conflicts. The user sees and tests it before enabling restrictions. If registration fails, restricted mode must not start.
 
-Выход должен **снимать ограничения и сохранять состояние, а не «крашить» редакторы**. Для строгого режима нужен независимый процесс выхода, связь с основным процессом и правило «при сбое ограничения снимаются». Он не завершает Calc, Visual Studio или PostgreSQL. Сохраняются кнопка выхода и системный путь восстановления. Не обещать работу сочетания на защищённом экране Windows.
+Exit must **release restrictions and preserve state, not crash editors**. A stricter mode needs an independent exit process, communication with the main process, and fail-open behavior. It must not terminate Calc, Visual Studio, or PostgreSQL. Keep an exit button and a system recovery path. Do not promise shortcut availability on the Windows secure desktop.
 
-Настоящие ограничения запуска — отдельный поздний этап для выделенной учётной записи или виртуальной машины. Нужны права администратора, подходящая редакция Windows, проверка совместимости инструментов и план отката. Windows предоставляет Assigned Access для ограниченного набора приложений, но это настройка ОС, а не свойство полноэкранного окна. [Документация Microsoft](https://learn.microsoft.com/en-us/windows/configuration/assigned-access/).
+Actual application-launch restrictions are a separate later stage for a dedicated account or virtual machine. They require administrator rights, a suitable Windows edition, compatibility checks, and a rollback plan. Windows Assigned Access supports a restricted set of applications, but it is an OS configuration, not a property of a full-screen window. [Microsoft documentation](https://learn.microsoft.com/en-us/windows/configuration/assigned-access/).
 
-Журнал концентрации — только с согласия: приложение и время переключения. Не записывать нажатия клавиш, содержимое документов, личные заголовки окон или постоянные скриншоты. Предусмотреть просмотр и удаление журнала; данные по умолчанию локальные.
+Focus logging requires consent and records only application identity and switching time. Do not record keystrokes, document contents, personal window titles, or continuous screenshots. Provide log viewing and deletion; data stays local by default.
 
-## 9. Проверка решений и устройство
+## 9. Validation and architecture
 
-### 9.1. Автоматические и ручные проверки
+### 9.1. Automated and manual checks
 
-| Результат | Метод | Ограничение |
+| Artifact | Method | Limitation |
 | --- | --- | --- |
-| CSV | Парсинг, ключи, ссылки, типы, число записей и итоги | CSV не доказывает использование формул; нужна `.ods` и объяснение |
-| Схема БД | Метаданные, ограничения, запросы и отрицательные вставки | Не требовать одинаковых имён и идентичного DDL |
-| Функция/триггер | Тесты событий, отката и границ | Наличия объекта недостаточно |
-| C# | Сборка, отдельные методы, запросы и сценарии | Отсутствие предупреждений не доказывает правильность |
-| Интерфейс и Designer | Демонстрация, чек-лист, скриншоты по согласию | `.Designer.cs` не доказывает способ создания; автопроверка ограничена |
-| Объяснение | Причины и контрпримеры | Сначала самопроверка или преподаватель, не мнимая точная оценка свободного текста |
+| CSV | Parsing, keys, references, types, record counts, totals | CSV cannot prove formula use; inspect the `.ods` and explanation too |
+| Database schema | Metadata, constraints, queries, negative inserts | Do not require identical names or DDL |
+| Function/trigger | Event, rollback, and boundary tests | Object existence is insufficient |
+| C# | Build, individual methods, queries, scenarios | A warning-free build does not prove correctness |
+| UI and Designer | Demonstration, checklist, screenshots with consent | `.Designer.cs` cannot prove how the UI was created; automation is limited |
+| Explanation | Causes and counterexamples | Start with self-review or a teacher, not a false claim of precise free-text grading |
 
-Допускать несколько корректных моделей. При других именах ученик указывает соответствие сущностей своей схеме; проверяются смысл и поведение. Если схема не подходит проверяющему компоненту, нужен разбор, а не автоматическое объявление ошибки.
+Accept multiple valid models. If names differ, the learner maps entities to their schema; validate meaning and behavior. A schema unsupported by the validator needs review, not an automatic incorrect verdict.
 
-Каждая задача описывает навык, исходники, правила, допустимые варианты, результат, тесты, подсказки и условия разбора. Генератор сохраняет начальные параметры для воспроизведения ошибки. Решения не вставляются в рабочие файлы ученика.
+Each task describes the skill, source data, rules, accepted alternatives, output, tests, hints, and review conditions. Preserve generation parameters to reproduce failures. Do not insert solutions into the learner's working files.
 
-### 9.2. Логические части
+### 9.2. Logical components
 
-- **Содержание:** варианты, задания, подсказки, критерии и источники.
-- **Сессия:** модуль, режим, таймер, контрольные точки и завершение.
-- **Инструменты:** проверка среды и открытие программ и файлов.
-- **Проверка:** отдельные компоненты для CSV, БД, проекта; отчёт с контрпримером.
-- **Прогресс:** навыки, самостоятельность, ошибки, повторения, достижения.
-- **Концентрация:** необязательный режим и независимый безопасный выход.
+- **Content:** variants, tasks, hints, criteria, and sources.
+- **Session:** module, mode, timer, checkpoints, and completion.
+- **Tools:** environment checks and opening applications/files.
+- **Validation:** separate CSV, database, and project checks; counterexample reports.
+- **Progress:** skills, independence, errors, reviews, and achievements.
+- **Focus:** optional restrictions and an independent safe exit.
 
-Сначала достаточно локальных структурированных файлов состояния; сервер, аккаунты и облако не нужны. Прогресс не хранится в БД, которую ученик создаёт и может удалить по заданию.
+Local structured state files are enough initially; no server, accounts, or cloud are required. Do not store progress in the exercise database that the learner may create or delete.
 
-Проверки работают только с выделенными учебными БД и каталогами попыток. Для просмотра — минимальные права; меняющие данные тесты — на изолированной копии или в откатываемой транзакции, где применимо. Для проверки фиксации и конкуренции нужна отдельная БД. Не запускать SQL или проект автоматически с правами администратора. Не удалять БД по совпадению префикса: список объектов попытки хранится явно, очистка подтверждается.
+Checks operate only on dedicated practice databases and attempt directories. Use minimal privileges for inspection; run mutating tests on an isolated copy or within a rolled-back transaction where applicable. Commit and concurrency tests require a separate database. Never automatically run SQL or a project with administrator privileges. Do not delete databases by name prefix alone: maintain an explicit attempt-object list and confirm cleanup.
 
-## 10. Порядок разработки и приёмка
+## 10. Development order and acceptance
 
-Не начинать с блокировки компьютера. Сначала доказать, что учебная механика помогает выполнить практическую задачу.
+Demonstrate that the learning loop helps solve a practical task before developing computer restrictions.
 
-| Этап | Объём | Условие готовности |
+| Stage | Scope | Acceptance condition |
 | --- | --- | --- |
-| 0. Профиль | Регламент, версии, пакеты и критерии | Требования сопоставлены с навыками; неизвестное отмечено |
-| 1. Прототип модуля 1 | Запуск, миссия, Calc, подсказки, проверка CSV, прогресс | Ученик сам готовит `.ods` и CSV; найдены потерянный FK и неверный экспорт; перезапуск сохраняет попытку |
-| 2. Модуль 2 | БД, импорт, ограничения, ветка триггеров | Проверены вставки и откат; чужие БД не затрагиваются |
-| 3. Модуль 3 | C#, формы, запросы, транзакции | Сборка на согласованном профиле; тест ID 3/17 и ошибки второй позиции пройден |
-| 4. Сквозной режим | Несколько тем, таймер, рубрика, отчёт, повторение | Новый вариант проходится без подсказок; смена темы не ломает проверку |
-| 5. Концентрация | Мягкий режим; строгие ограничения — отдельно | Выход проверен при зависании окна; редакторы и данные целы |
+| 0. Profile | Specification, versions, packages, criteria | Requirements mapped to skills; unknowns identified |
+| 1. Module 1 prototype | Launch, mission, Calc, hints, CSV checks, progress | Learner prepares `.ods` and CSV independently; missing FK and invalid export detected; restart preserves the attempt |
+| 2. Module 2 | Database, import, constraints, trigger branch | Inserts and rollback checked; unrelated databases untouched |
+| 3. Module 3 | C#, forms, queries, transactions | Builds on the agreed profile; IDs 3/17 and second-detail failure tests pass |
+| 4. End-to-end mode | Multiple domains, timer, rubric, reports, review | Fresh variant completed without hints; changing domains does not break validation |
+| 5. Focus | Soft mode; strict restrictions considered separately | Exit tested with the main window hung; editors and data remain intact |
 
-Общие критерии: понятная диагностика отсутствующей программы; занятие без сети после подготовки; восстановление прогресса; кириллица и пути с пробелами; отсутствие секретов в Git; никакого изменения чужих файлов или системных политик без отдельного согласия.
+General criteria: clear missing-tool diagnostics; offline sessions after preparation; recoverable progress; Cyrillic and space-containing paths; no secrets in Git; no unrelated file or system-policy changes without separate consent.
 
-## 11. Что уточнить перед реализацией
+## 11. Questions before implementation
 
-1. Полный актуальный КОД/КИМ: официальные модули, время, баллы, материалы и комплект сдачи. Приложений с примером недостаточно.
-2. Версии Windows, Visual Studio, .NET, Npgsql, PostgreSQL, pgAdmin и LibreOffice. Доступность полного офлайн-набора NuGet-зависимостей.
-3. Где закреплено требование триггеров: нужны ли функции, процедуры, представления и какие сценарии проверяются.
-4. Разрешены ли макросы, заготовки, справка и интернет; что считается самостоятельной работой.
-5. Нужен ли принудительный режим на отдельной учётной записи или достаточно добровольной концентрации.
+1. Complete current exam specification: official modules, duration, scores, permitted resources, and submission artifacts. Example appendices are insufficient.
+2. Windows, Visual Studio, .NET, Npgsql, PostgreSQL, pgAdmin, and LibreOffice versions. Availability of all offline NuGet dependencies.
+3. Where the trigger requirement is stated; whether functions, procedures, or views are required, and which scenarios are assessed.
+4. Whether macros, templates, reference documentation, and internet access are allowed; what counts as independent work.
+5. Whether enforced restrictions on a dedicated account are needed or voluntary focus is sufficient.
 
-До уточнений можно разрабатывать учебный прототип нормализации. Нельзя объявлять его полным соответствием экзамену, фиксировать непроверенные версии или внедрять системные блокировки.
+A normalization learning prototype can proceed before every question is answered. Do not claim full exam compliance, lock in unverified versions, or deploy system restrictions until the relevant details are confirmed.

@@ -1,9 +1,30 @@
-.analysis/
-source-package/
+# Local source extracts and document previews
+/.analysis/
+/source-package/
+
+# Operating system files
 .DS_Store
-bin/
-obj/
+Thumbs.db
+Desktop.ini
+
+# Build and test output
+[Bb]in/
+[Oo]bj/
+TestResults/
+
+# Local IDE settings
 .vs/
 .idea/
 *.user
 *.suo
+*.userosscache
+*.sln.docstates
+
+# Office lock files (keep actual workbooks and documents tracked)
+.~lock.*#
+~$*
+
+# Local environment secrets; allow documented example configuration
+.env
+.env.*
+!.env.example
