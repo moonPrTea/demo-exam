@@ -11,7 +11,10 @@ const integer = (value: unknown, min: number, max: number): value is number =>
 export function validateSession(session: unknown): PracticeSession {
   if (!record(session) || !record(session.config))
     throw new Error('Invalid session');
-  normalizeConfig(session.config);
+  session.config = normalizeConfig({
+    ...session.config,
+    generatorVersion: session.config.generatorVersion ?? 1,
+  });
   if (
     typeof session.status !== 'string' ||
     !['running', 'submitted', 'expired', 'interrupted'].includes(
@@ -49,7 +52,7 @@ export function validateState(stored: unknown): AppState {
     !Array.isArray(stored.quizHistory)
   )
     throw new Error('Invalid saved state');
-  normalizeConfig(stored.config);
+  stored.config = normalizeConfig(stored.config);
   if (
     typeof stored.delimiter !== 'string' ||
     ![';', ','].includes(stored.delimiter) ||

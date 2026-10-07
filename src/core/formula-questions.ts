@@ -1,6 +1,9 @@
 import type {FormulaSkill, Question} from './types.js';
 
 export const FORMULA_TOPIC = 'Формулы Calc';
+export const FORMULA_FUNCTIONS = ['ИНДЕКС', 'ПОИСКПОЗ'] as const;
+export const FORMULA_SCOPE =
+  'Только ИНДЕКС и ПОИСКПОЗ из formuly.docx: назначение, аргументы, точный поиск и подстановка FK';
 
 const q = (
   skill: FormulaSkill,

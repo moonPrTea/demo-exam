@@ -3,10 +3,28 @@ import assert from 'node:assert/strict';
 import {
   formulaQuestions,
   FORMULA_TOPIC,
+  FORMULA_FUNCTIONS,
 } from '../build/src/core/formula-questions.js';
 import {questions, makeQuiz} from '../build/src/core/quiz.js';
 import {validateState} from '../build/src/core/storage.js';
 import {normalizeConfig} from '../build/src/core/generator.js';
+
+test('formula curriculum uses only the two functions in formuly.docx', () => {
+  assert.deepEqual(FORMULA_FUNCTIONS, ['ИНДЕКС', 'ПОИСКПОЗ']);
+  const seen = new Set();
+  for (const q of questions.filter(item => item.topic === FORMULA_TOPIC)) {
+    for (const text of [q.question, ...q.options, q.hint, q.explanation]) {
+      for (const match of text.matchAll(/([А-ЯЁ][А-ЯЁ.]+)\(/g)) {
+        seen.add(match[1]);
+        assert.ok(
+          FORMULA_FUNCTIONS.includes(match[1]),
+          `Out-of-scope function in ${q.id}: ${match[1]}`,
+        );
+      }
+    }
+  }
+  assert.deepEqual(seen, new Set(FORMULA_FUNCTIONS));
+});
 
 test('formula bank covers meaning, choosing a method, evaluation and debugging', () => {
   assert.equal(formulaQuestions.length, 20);

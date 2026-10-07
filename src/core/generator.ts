@@ -9,8 +9,9 @@ import type {
 } from './types.js';
 import {random, integer, pick, shuffle} from './random.js';
 import {toCsv} from './csv.js';
+import {generateBundle} from './source-bundle.js';
 
-export const GENERATOR_VERSION = 1;
+export const GENERATOR_VERSION = 2;
 export const domains: Domain[] = [
   {
     id: 'retail',
@@ -63,6 +64,14 @@ const clean = (value: unknown) =>
 const money = (cents: number) => (cents / 100).toFixed(2);
 
 export function normalizeConfig(input: ConfigInput = {}): Config {
+  const version =
+    input.generatorVersion === '1'
+      ? 1
+      : input.generatorVersion === '2'
+        ? 2
+        : (input.generatorVersion ?? GENERATOR_VERSION);
+  if (version !== 1 && version !== 2)
+    throw new Error('Неизвестная версия генератора');
   const config = {
     domain: input.domain ?? 'retail',
     seed: String(input.seed ?? 'FORMA-01'),
@@ -82,7 +91,7 @@ export function normalizeConfig(input: ConfigInput = {}): Config {
     !['basic', 'advanced'].includes(config.difficulty)
   )
     throw new Error('Неизвестная сложность.');
-  return config as Config;
+  return {...config, generatorVersion: version} as Config;
 }
 
 function retail(rng: Random, count: number): SourceData {
@@ -264,10 +273,11 @@ function courses(rng: Random, count: number): SourceData {
 
 export function generateDataset(input: ConfigInput): Dataset {
   const config = normalizeConfig(input);
-  const rng = random(
-    `${GENERATOR_VERSION}:${config.domain}:${config.seed}:${config.size}:${config.difficulty}`,
-  );
   const domain = domains.find(d => d.id === config.domain)!;
+  if (config.generatorVersion === 2) return generateBundle(config, domain);
+  const rng = random(
+    `1:${config.domain}:${config.seed}:${config.size}:${config.difficulty}`,
+  );
   const data = {retail, library, courses}[config.domain](rng, config.size);
   const category = pick(rng, [
     ...new Set(data.rows.map(r => r[data.categorical])),
@@ -315,7 +325,7 @@ export function generateDataset(input: ConfigInput): Dataset {
     );
   }
   return {
-    version: GENERATOR_VERSION,
+    version: 1,
     config,
     domain,
     ...data,
@@ -332,16 +342,17 @@ export const checklist = [
 ];
 
 export function assignment(dataset: Dataset) {
+  if (dataset.version === 2) return bundleAssignment(dataset);
   return `# ${dataset.domain.name} - вариант ${dataset.config.seed}\n\nГенератор v${dataset.version}. Все записи вымышлены.\n\n${dataset.domain.description}\n${dataset.domain.grain}\n\n## Условия\n\n${dataset.rules.map(x => `- ${x}`).join('\n')}\n\n## Задание\n\nСамостоятельно выдели сущности и связи, приведи данные к 3НФ, назначь PK/FK. Сохрани рабочую книгу .ods и отдельный CSV для каждой таблицы. Не ограничивайся удалением повторов. Объясни свои решения.\n\n## Выборки\n\nВыполни в Calc или напиши SQL после создания БД. В приложении проверяются только числовые результаты, не текст SQL.\n\n${dataset.tasks.map((x, i) => `${i + 1}. ${x.prompt}`).join('\n')}\n\n## Вопросы для объяснения\n\n${dataset.questions.map(x => `- ${x}`).join('\n')}\n\n## Самопроверка\n\n${checklist.map(x => `- [ ] ${x}`).join('\n')}\n\nЧек-лист не является автоматической оценкой нормализации или официальной оценкой экзамена.\n`;
 }
 
 export function exportFiles(config: ConfigInput, delimiter = ';') {
   const dataset = generateDataset(config);
   return [
-    {
-      name: 'source.csv',
-      content: toCsv(dataset.headers, dataset.rows, delimiter),
-    },
+    ...sourceFiles(dataset).map(source => ({
+      name: source.name,
+      content: toCsv(source.headers, source.rows, delimiter),
+    })),
     {
       name: 'assignment.md',
       content:
@@ -351,7 +362,7 @@ export function exportFiles(config: ConfigInput, delimiter = ';') {
     {
       name: 'variant.json',
       content: JSON.stringify(
-        {generatorVersion: GENERATOR_VERSION, ...dataset.config, delimiter},
+        {...dataset.config, generatorVersion: dataset.version, delimiter},
         null,
         2,
       ),
@@ -371,3 +382,42 @@ export function gradeTasks(dataset: Dataset, answers: Record<string, unknown>) {
 }
 
 export {clean};
+
+export function sourceFiles(dataset: Dataset) {
+  return (
+    dataset.sources ?? [
+      {
+        name: 'source.csv',
+        grain: dataset.domain.grain,
+        headers: dataset.headers,
+        rows: dataset.rows,
+      },
+    ]
+  );
+}
+
+function bundleAssignment(dataset: Dataset) {
+  return (
+    [
+      `# ${dataset.domain.name} - вариант ${dataset.config.seed}`,
+      `Генератор v2. Все записи вымышлены. ${dataset.domain.description}`,
+      '## Три исходных CSV',
+      ...sourceFiles(dataset).map(
+        source =>
+          `- ${source.name}: ${source.rows.length} строк. ${source.grain}`,
+      ),
+      '## Задание',
+      'Самостоятельно нормализуй три связанных исходника в 12 таблиц, включая справочники и связи. Определи зависимости, назначь устойчивые PK, сопоставь FK через ИНДЕКС + ПОИСКПОЗ с точным поиском. Сохрани рабочую .ods и 12 отдельных CSV для импорта в PostgreSQL. Готовая схема и SQL не выдаются. Число таблиц само по себе не доказывает 3НФ: объясни каждую сущность и связь',
+      '## Условия',
+      ...dataset.rules.map(rule => `- ${rule}`),
+      '## Выборки',
+      'Для каждой выборки указан исходный файл. Можно решать в Calc или SQL после нормализации. При SQL-соединениях сохрани смысл строки исходника и не размножай строки связями многие-ко-многим. Проверяются только числовые ответы',
+      ...dataset.tasks.map((task, i) => `${i + 1}. ${task.prompt}`),
+      '## Вопросы для объяснения',
+      ...dataset.questions.map(question => `- ${question}`),
+      '## Самопроверка',
+      ...checklist.map(item => `- [ ] ${item}`),
+      'Чек-лист является самооценкой. Автоматической проверки нормализации и официальной оценки экзамена нет',
+    ].join('\n\n') + '\n'
+  );
+}

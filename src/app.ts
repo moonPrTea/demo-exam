@@ -17,7 +17,9 @@ import {
   exportFiles,
   gradeTasks,
   checklist,
+  sourceFiles,
 } from './core/generator.js';
+import {FORMULA_SCOPE} from './core/formula-questions.js';
 import {questions, topics, makeQuiz} from './core/quiz.js';
 import {
   startSession,
@@ -31,7 +33,7 @@ const KEY = 'forma.v1';
 const initial = (): AppState => ({
   version: 1,
   view: 'home',
-  config: {domain: 'retail', seed: 'FORMA-01', size: 60, difficulty: 'basic'},
+  config: normalizeConfig(),
   delimiter: ';',
   quiz: null,
   quizHistory: [],
@@ -316,7 +318,7 @@ function home() {
       <section class="sprint-card">
         <div class="sprint-top">${icon('clock')}<span>ПРАКТИКА</span></div>
         <h2>Практика на время</h2>
-        <p>Новый CSV, самостоятельная работа и время на твоей стороне</p>
+        <p>Три CSV, 12 таблиц и самостоятельная работа в Calc</p>
         <div class="sprint-digits">45<span>:00</span></div>
         <button class="button secondary" data-view="practice">
           ${active() ? 'Вернуться к попытке' : 'Настроить тренировку'}
@@ -374,7 +376,7 @@ function configFields(config: Config, {duration = false} = {}) {
     >
     <div class="field-row">
       <label
-        >Количество строк<input
+        >Строк операций<input
           name="size"
           type="number"
           min="20"
@@ -416,6 +418,15 @@ function configFields(config: Config, {duration = false} = {}) {
           ${icon('shuffle')}
         </button>
       </div></label
+    ><label
+      >Формат набора<select name="generatorVersion">
+        <option value="2" ${config.generatorVersion !== 1 ? 'selected' : ''}>
+          3 CSV, цель 12 таблиц
+        </option>
+        <option value="1" ${config.generatorVersion === 1 ? 'selected' : ''}>
+          Старый вариант, 1 CSV
+        </option>
+      </select></label
     >${
       duration
         ? '<label>Лимит времени, минут<input name="minutes" type="number" min="1" max="240" value="45" required></label>'
@@ -432,41 +443,62 @@ function configFields(config: Config, {duration = false} = {}) {
     }`;
 }
 
-function exportButtons() {
+function exportButtons(dataset: Dataset) {
   return window.desktop
     ? button('export', `${icon('download')} Сохранить набор`, 'primary')
     : html`<div class="actions">
-        ${button('download', `${icon('download')} CSV`, 'primary', 'data-file="source.csv"')}${button('download', 'Задание', 'secondary', 'data-file="assignment.md"')}${button('download', 'Параметры', 'ghost', 'data-file="variant.json"')}
+        ${sourceFiles(dataset)
+          .map(source =>
+            button(
+              'download',
+              `${icon('download')} ${esc(source.name)}`,
+              'primary',
+              `data-file="${source.name}"`,
+            ),
+          )
+          .join(
+            '',
+          )}${button('download', 'Задание', 'secondary', 'data-file="assignment.md"')}${button('download', 'Параметры', 'ghost', 'data-file="variant.json"')}
       </div>`;
 }
 
 let csvPage = 0;
 let csvVariant = '';
+let csvSource = 0;
 const csvPageSize = 10;
 
 function datasetInfo(dataset: Dataset) {
   const key = JSON.stringify(dataset.config);
   if (key !== csvVariant) {
     csvPage = 0;
+    csvSource = 0;
     csvVariant = key;
   }
-  const pages = Math.ceil(dataset.rows.length / csvPageSize);
+  const sources = sourceFiles(dataset);
+  const source = sources[csvSource] ?? sources[0];
+  const pages = Math.ceil(source.rows.length / csvPageSize);
   csvPage = Math.max(0, Math.min(csvPage, pages - 1));
   const start = csvPage * csvPageSize;
-  const rows = dataset.rows.slice(start, start + csvPageSize);
+  const rows = source.rows.slice(start, start + csvPageSize);
   return html`<div class="csv-preview">
+    <div class="source-switcher" role="group" aria-label="Исходные CSV">
+      ${sources.map((file, i) => button('csv-source', esc(file.name), 'secondary', `data-source="${i}" aria-pressed="${i === csvSource}"`)).join('')}
+      <span
+        >${dataset.targetTableCount ? 'Цель: 12 таблиц после нормализации' : 'Архивный формат v1'}</span
+      >
+    </div>
     <div class="dataset-title">
       <span class="file-icon">${icon('file')}</span>
       <div>
-        <h3>source.csv</h3>
+        <h3>${source.name}</h3>
         <span
-          >${dataset.rows.length} строк, ${dataset.headers.length} полей,
+          >${source.rows.length} строк, ${source.headers.length} полей,
           UTF-8</span
         >
       </div>
       <div class="dataset-summary">
         <h2>${dataset.domain.name}</h2>
-        <p>${caption(dataset.domain.grain)}</p>
+        <p>${caption(source.grain)}</p>
       </div>
       <span class="pill subtle">${esc(dataset.config.seed)}</span>
     </div>
@@ -484,7 +516,7 @@ function datasetInfo(dataset: Dataset) {
         <thead>
           <tr>
             <th class="row-number" scope="col">№</th>
-            ${dataset.headers.map(h => html`<th scope="col">${h}</th>`).join('')}
+            ${source.headers.map(h => html`<th scope="col">${h}</th>`).join('')}
           </tr>
         </thead>
         <tbody>
@@ -493,7 +525,7 @@ function datasetInfo(dataset: Dataset) {
               (row, i) =>
                 html`<tr>
                   <th scope="row" class="row-number">${start + i + 1}</th>
-                  ${dataset.headers.map(h => html`<td><span title="${esc(row[h])}">${esc(row[h])}</span></td>`).join('')}
+                  ${source.headers.map(h => html`<td><span title="${esc(row[h])}">${esc(row[h])}</span></td>`).join('')}
                 </tr>`,
             )
             .join('')}
@@ -503,7 +535,7 @@ function datasetInfo(dataset: Dataset) {
     <div class="table-foot">
       <span aria-live="polite"
         >Строки ${start + 1}-${start + rows.length} из
-        ${dataset.rows.length}</span
+        ${source.rows.length}</span
       >
       <div class="csv-pagination">
         <button
@@ -580,10 +612,10 @@ function generator() {
           ${datasetInfo(data)}
           <div class="export-row">
             <span
-              >CSV + задание + параметры<br /><small
+              >${sourceFiles(data).length} CSV + задание + параметры<br /><small
                 >Без готовой схемы и ответов</small
               ></span
-            >${exportButtons()}
+            >${exportButtons(data)}
           </div>
         </section>
         <section class="panel">
@@ -637,6 +669,7 @@ function quizView() {
           <span>${questions.length} вопроса</span
           ><span>Разбор каждого ответа</span><span>Без таймера</span>
         </div>
+        <p class="formula-scope">${FORMULA_SCOPE}</p>
       </div>`;
   if (quiz.completed) {
     const correct = quiz.answers.filter(a => a.correct).length;
@@ -717,7 +750,7 @@ function quizView() {
 function practice() {
   const session = state.session;
   if (!session)
-    return html`${heading('САМОСТОЯТЕЛЬНЫЙ РЕЖИМ', 'Практика на время', 'Тренируй первую часть: от исходной таблицы до связанной модели.')}
+    return html`${heading('САМОСТОЯТЕЛЬНЫЙ РЕЖИМ', 'Практика на время', 'Тренируй первую часть: три исходных CSV и 12 связанных таблиц')}
       <div class="practice-setup">
         <section class="panel">
           <div class="panel-title">
@@ -743,7 +776,10 @@ function practice() {
             </li>
             <li>
               <strong>Нормализуй самостоятельно</strong>
-              <p>Определи сущности, PK и FK. Сохрани .ods и отдельные CSV</p>
+              <p>
+                Для нового формата выдели 12 таблиц, назначь PK и FK, сохрани
+                .ods и отдельные CSV
+              </p>
             </li>
             <li>
               <strong>Выполни выборки</strong>
@@ -776,9 +812,19 @@ function practice() {
         <section class="panel">
           <div class="panel-title">
             <h2>01. Исходники и условия</h2>
-            ${exportButtons()}
+            ${exportButtons(data)}
           </div>
-          <p>${data.domain.description} ${data.domain.grain}</p>
+          <p>${data.domain.description}</p>
+          <ul class="rules-list">
+            ${sourceFiles(data)
+              .map(
+                source =>
+                  html`<li>
+                    ${source.name}: ${source.rows.length} строк, ${source.grain}
+                  </li>`,
+              )
+              .join('')}
+          </ul>
           <ul class="rules-list">
             ${data.rules.map(rule => html`<li>${esc(rule)}</li>`).join('')}
           </ul>
@@ -1116,6 +1162,16 @@ document.addEventListener('click', async event => {
       return;
     }
     switch (target.dataset.action) {
+      case 'csv-source':
+        csvSource = Number(target.dataset.source);
+        csvPage = 0;
+        query('.csv-preview').outerHTML = datasetInfo(
+          generateDataset(state.config),
+        );
+        query(`[data-action="csv-source"][data-source="${csvSource}"]`).focus({
+          preventScroll: true,
+        });
+        return;
       case 'csv-prev':
       case 'csv-next': {
         const scroll = query('.csv-scroll');

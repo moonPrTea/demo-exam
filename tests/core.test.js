@@ -2,9 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   domains,
-  generateDataset,
+  generateDataset as generate,
   normalizeConfig,
-  exportFiles,
+  exportFiles as exportBundle,
   gradeTasks,
   clean,
 } from '../build/src/core/generator.js';
@@ -17,6 +17,10 @@ import {
   formatTime,
 } from '../build/src/core/session.js';
 import {validateState} from '../build/src/core/storage.js';
+
+const generateDataset = input => generate({...input, generatorVersion: 1});
+const exportFiles = (input, delimiter) =>
+  exportBundle({...input, generatorVersion: 1}, delimiter);
 
 // Independent CSV reader used only to verify the application's serializer.
 function readCsv(csv, separator) {
@@ -49,7 +53,7 @@ function readCsv(csv, separator) {
 
 for (const domain of domains)
   for (const difficulty of ['basic', 'advanced']) {
-    test(`${domain.id}/${difficulty}: deterministic data, export and independently computed answers`, () => {
+    test(`legacy ${domain.id}/${difficulty}: deterministic data, export and independently computed answers`, () => {
       for (const seed of ['FORMA-01', 'case_17', '0', 'boundary']) {
         const config = {domain: domain.id, seed, difficulty, size: 120};
         const data = generateDataset(config);

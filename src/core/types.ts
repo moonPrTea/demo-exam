@@ -4,6 +4,7 @@ export type Random = () => number;
 export type Cell = string | number;
 export type Row = Record<string, Cell>;
 export type ConfigInput = {
+  generatorVersion?: unknown;
   domain?: unknown;
   seed?: unknown;
   size?: unknown;
@@ -11,6 +12,7 @@ export type ConfigInput = {
 };
 
 export interface Config {
+  generatorVersion?: 1 | 2;
   domain: DomainId;
   seed: string;
   size: number;
@@ -45,11 +47,20 @@ export interface Task {
 }
 
 export interface Dataset extends SourceData {
+  sources?: CsvSource[];
+  targetTableCount?: number;
   version: number;
   config: Config;
   domain: Domain;
   tasks: Task[];
   headers: string[];
+}
+
+export interface CsvSource {
+  name: string;
+  grain: string;
+  headers: string[];
+  rows: Row[];
 }
 
 export type FormulaSkill =

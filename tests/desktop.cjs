@@ -197,6 +197,17 @@ async function run() {
     'document.querySelector("[name=domain]").value = "library"; document.querySelector("[name=size]").value = "80"; document.querySelector("#generator-form").requestSubmit()',
   );
   assert.match(await text('.dataset-summary'), /Библиотека/);
+  assert.equal(
+    await evaluate(
+      'document.querySelectorAll("[data-action=csv-source]").length',
+    ),
+    3,
+  );
+  assert.match(await text('.dataset-title'), /24 строк/);
+  await click('[data-action="csv-source"][data-source="1"]');
+  assert.match(await text('.data-table thead'), /user_code/);
+  assert.match(await text('.dataset-title'), /users.csv/);
+  await click('[data-action="csv-source"][data-source="2"]');
   assert.match(await text('.dataset-title'), /80 строк/);
   const firstVariant = await evaluate(
     'JSON.parse(localStorage.getItem("forma.v1")).config',
@@ -229,6 +240,9 @@ async function run() {
     '{ const domain = document.querySelector("[name=domain]"); domain.value="courses"; domain.dispatchEvent(new Event("change", {bubbles:true})); }',
   );
   assert.match(await text('.dataset-summary'), /Учебный центр/);
+  assert.match(await text('.data-table thead'), /room_code/);
+  assert.match(await text('.dataset-title'), /cohorts.csv/);
+  await click('[data-action="csv-source"][data-source="2"]');
   assert.match(await text('.data-table thead'), /enrollment_id/);
   assert.doesNotMatch(await text('.data-table thead'), /loan_id/);
   assert.match(await text('.rules-panel'), /слушател/);
@@ -236,6 +250,8 @@ async function run() {
     '{ const domain = document.querySelector("[name=domain]"); domain.value="library"; domain.dispatchEvent(new Event("change", {bubbles:true})); }',
   );
   assert.match(await text('.dataset-summary'), /Библиотека/);
+  assert.match(await text('.dataset-title'), /catalog.csv/);
+  await click('[data-action="csv-source"][data-source="2"]');
   assert.match(await text('.data-table thead'), /loan_id/);
   assert.equal(
     await evaluate(
@@ -314,6 +330,7 @@ async function run() {
     10,
   );
   assert.equal(await evaluate('/[—·]/.test(document.body.innerText)'), false);
+  await click('[data-action="csv-source"][data-source="2"]');
   assert.match(await text('.table-foot'), /Строки 1-10 из 80/);
   await evaluate(
     'document.querySelector("[name=seed]").value = "UNSAVED-DRAFT"',
@@ -395,10 +412,18 @@ async function run() {
     'window.desktop.exportDataset(JSON.parse(localStorage.getItem("forma.v1")).config, ";")',
   );
   const exported = await fs.readFile(
-    path.join(result.directory, 'source.csv'),
+    path.join(result.directory, 'loans.csv'),
     'utf8',
   );
   assert.match(exported, /loan_id/);
+  assert.equal(result.count, 5);
+  assert.deepEqual((await fs.readdir(result.directory)).sort(), [
+    'assignment.md',
+    'catalog.csv',
+    'loans.csv',
+    'users.csv',
+    'variant.json',
+  ]);
   assert.match(
     await fs.readFile(path.join(result.directory, 'assignment.md'), 'utf8'),
     /Выборки/,
@@ -504,6 +529,15 @@ async function run() {
   assert.equal(
     await preview.webContents.executeJavaScript('typeof window.desktop'),
     'undefined',
+  );
+  await preview.webContents.executeJavaScript(
+    'document.querySelector("[data-view=generator]").click()',
+  );
+  assert.deepEqual(
+    await preview.webContents.executeJavaScript(
+      '[...document.querySelectorAll("[data-file]")].map(button => button.dataset.file)',
+    ),
+    ['catalog.csv', 'users.csv', 'orders.csv', 'assignment.md', 'variant.json'],
   );
   preview.destroy();
   assert.deepEqual(errors, []);

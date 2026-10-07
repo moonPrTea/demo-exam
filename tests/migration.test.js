@@ -16,7 +16,9 @@ test('TypeScript migration preserves version-1 datasets and assignments', () => 
       seed: 'MIGRATION',
       size: 60,
       difficulty: 'advanced',
+      generatorVersion: 1,
     });
+    delete data.config.generatorVersion;
     assert.equal(
       createHash('sha256').update(JSON.stringify(data)).digest('hex'),
       expected,

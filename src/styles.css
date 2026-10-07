@@ -2086,6 +2086,29 @@ button:disabled,
 .history-name small {
   font-size: 12px;
 }
+.source-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--line);
+}
+.source-switcher [aria-pressed='true'] {
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+}
+.source-switcher > span {
+  flex-basis: 100%;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.quiz-intro .formula-scope {
+  max-width: 560px;
+  margin: 20px auto 0;
+  font-size: 13px;
+}
 .history-link {
   padding: 0;
   background: none;

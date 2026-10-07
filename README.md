@@ -26,8 +26,8 @@ Alternatively, use `Start.command` on macOS (`sh Start.command` from Terminal) o
 Implemented now:
 
 - **Quiz:** 44 questions across five topics, up to eight per round, shuffled answers, hints, explanations, and a record of independent answers.
-- **Generator:** retail (order lines), library (physical copies, loans, multiple authors), and training center (courses, cohorts, enrollments). Choose 20–500 rows, a reproducible variant code, basic or whitespace-cleanup difficulty, and comma/semicolon CSV delimiters.
-- **Exports:** UTF-8 CSV with BOM, a Russian assignment, and variant metadata, saved to a newly created folder. The exported files contain no reference schema or answers. Import leading-zero identifiers as text in Calc.
+- **Generator:** three related source CSVs per variant, designed for independent normalization into 12 tables. Retail uses `catalog.csv`, `users.csv`, `orders.csv`; library uses `catalog.csv`, `users.csv`, `loans.csv`; training center uses `cohorts.csv`, `users.csv`, `enrollments.csv`. Choose 20–500 operation rows, a reproducible variant code, basic or whitespace-cleanup difficulty, and comma/semicolon delimiters. Catalogs contain 24 rows; user files contain 20 rows (28 for courses). Preview each file independently.
+- **Exports:** three UTF-8 CSVs with BOM, a Russian assignment, and versioned variant metadata (five files), saved to a newly created folder. No normalized tables, reference schema, SQL or answers are exported. Import leading-zero identifiers as text in Calc.
 - **Selection tasks:** generated combined filters, distinct counts, and date-bounded sums. Conditions and results depend on the variant. Solve them in Calc or SQL; the app checks integer results, not SQL syntax.
 - **Timed practice:** configurable 1–240 minute limit, no pause, saved inputs and checklist, early submission or automatic expiry, then answer review. Closing the window or sleeping the computer does not reset the deadline.
 - **Progress:** local quiz/practice history and four achievements based on completed activity. Normalization is explicitly a self-assessment, not an automatic schema grade.
@@ -52,11 +52,19 @@ Source map: `electron/` contains the isolated desktop shell and narrow export AP
 
 Not implemented yet: reading your normalized CSV files back, checking arbitrary database schemas or SQL queries, launching/configuring Calc or PostgreSQL, strict focus restrictions, or modules 2–4. The sections below describe the full intended curriculum; the list above is the current implementation boundary.
 
-Verified on macOS Apple Silicon: all 21 logic tests and the Electron workflow smoke test pass; packaging produces `release/formatted-darwin-arm64/formatted.app`. Open this local bundle in Finder without Node.js. Launching the packaged bundle itself has not been verified through UI automation (macOS computer-control permission was unavailable). Windows runtime testing is still pending.
+Verification on macOS Apple Silicon uses 27 logic tests and an Electron workflow smoke test; packaging produces `release/formatted-darwin-arm64/formatted.app`. Open this local bundle in Finder without Node.js. Launching the packaged bundle itself has not been verified through UI automation (macOS computer-control permission was unavailable). Windows runtime testing is still pending.
 
 CSV preview uses the full content width below the settings form. All rows are available in pages of 10, with fixed headers and row numbers, wrapped cell text, and horizontal scrolling. Preview navigation does not change the source CSV or discard unsaved form settings.
 
-**New variant** assigns a fresh code and changes all three selection conditions relative to the previous variant. **Open by code** reproduces the entered code with the selected domain, row count, and difficulty. Changing the domain immediately refreshes the data, labels, rules, and tasks. Saved timed attempts still use the unchanged version-1 seeded generator. The same `src/assets/forma.svg` mark is used in navigation and the favicon; `npm run icons` regenerates PNG/ICO assets and, on macOS, ICNS for packaging.
+**New variant** assigns a fresh code and changes all three selection conditions relative to the previous variant. **Open by code** reproduces the entered code with the selected domain, operation count, difficulty and generator format. Changing the domain immediately refreshes the files, labels, rules and tasks. New settings default to version 2 (three CSVs). Unversioned saved attempts are explicitly treated as version 1 so their data and grades remain unchanged. The format selector can reopen old single-file variants. `variant.json` records the version. The same `src/assets/forma.svg` mark is used in navigation and the favicon; `npm run icons` regenerates PNG/ICO assets and, on macOS, ICNS for packaging.
+
+### Scope of the source-based exercises
+
+Only **INDEX** and **MATCH** are taught as formulas, exactly as in `formuly.docx`; a test guards this allowlist. Deduplication, Text to Columns, trimming edge spaces, pasting numbers and CSV export are Calc operations, not additional formula requirements. The 25 existing formula questions already stay within this scope.
+
+The three-source, twelve-table profile follows the learner's clarified training requirement. The available example archive actually contains five XLSX inputs (`Products_import`, `Stock_Items_import`, `Sizes_import`, `Users_import`, `Orders_import`), not three CSVs. Version 2 adapts these ideas: the retail catalog combines products, sizes and stock, while other domains use their own relationships. It is not presented as an exact copy of the archive or an official exam rule.
+
+Twelve is the exercise's target model size, not a universal consequence of 3NF. Each domain includes meaningful reference entities, operations and relationships; tests check their dependencies, twelve-table decomposition and cross-file references. The learner still derives the model. Selection tasks identify their source file and count its original row grain, even when solving through normalized SQL joins. Advanced variants use ordinary edge spaces so cleanup follows the supplied handout. Normalization is still self-assessed, not automatically graded.
 
 
 ### Code conventions
