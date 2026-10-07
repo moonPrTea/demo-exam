@@ -33,3 +33,5 @@ TestResults/
 node_modules/
 release/
 coverage/
+build/
+*.tsbuildinfo

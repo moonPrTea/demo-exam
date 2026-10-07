@@ -6,13 +6,16 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-if not exist node_modules\electron\dist\electron.exe (
+if not exist node_modules\electron\dist\electron.exe goto install
+if not exist node_modules\typescript\bin\tsc goto install
+goto start
+:install
   echo Installing dependencies. Internet access is required for this first step.
   call npm ci
   if errorlevel 1 (
     pause
     exit /b 1
   )
-)
+:start
 call npm start
 if errorlevel 1 pause

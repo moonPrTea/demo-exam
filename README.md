@@ -12,7 +12,7 @@ The core principle is transferable understanding, not memorizing an example. The
 
 ## Run the prototype
 
-**Forma** is a local Electron desktop application for macOS and Windows. Its Russian-language UI follows the supplied dark workspace references: sidebar navigation, dataset folders, muted violet accents, and compact study cards. It uses plain HTML/CSS/JavaScript and separately tested learning modules, without a backend or account. This trainer is separate from the C#/WinForms exam solution.
+**formatted** is a local Electron desktop application for macOS and Windows. Its Russian-language UI uses a light, minimal style inspired by [Magritte UI](https://www.npmjs.com/package/@hh.ru/magritte-ui): opaque white surfaces, a pale gray background, dark text, a blue accent, and readable CSV tables. The palette references Magritte design tokens 25.1.0, with contrast adjustments. This is a CSS adaptation, not an installation of the React component library. Narrow windows use icon navigation. It uses HTML/CSS and strict TypeScript and separately tested learning modules, without a backend or account. This trainer is separate from the C#/WinForms exam solution.
 
 Install a current supported Node.js version (22.12 or newer), then run from the repository:
 
@@ -25,14 +25,17 @@ Alternatively, use `Start.command` on macOS (`sh Start.command` from Terminal) o
 
 Implemented now:
 
-- **Quiz:** 24 questions across five topics, up to eight per round, shuffled answers, hints, explanations, and a record of independent answers.
+- **Quiz:** 44 questions across five topics, up to eight per round, shuffled answers, hints, explanations, and a record of independent answers.
 - **Generator:** retail (order lines), library (physical copies, loans, multiple authors), and training center (courses, cohorts, enrollments). Choose 20–500 rows, a reproducible variant code, basic or whitespace-cleanup difficulty, and comma/semicolon CSV delimiters.
 - **Exports:** UTF-8 CSV with BOM, a Russian assignment, and variant metadata, saved to a newly created folder. The exported files contain no reference schema or answers. Import leading-zero identifiers as text in Calc.
 - **Selection tasks:** generated combined filters, distinct counts, and date-bounded sums. Conditions and results depend on the variant. Solve them in Calc or SQL; the app checks integer results, not SQL syntax.
 - **Timed practice:** configurable 1–240 minute limit, no pause, saved inputs and checklist, early submission or automatic expiry, then answer review. Closing the window or sleeping the computer does not reset the deadline.
 - **Progress:** local quiz/practice history and four achievements based on completed activity. Normalization is explicitly a self-assessment, not an automatic schema grade.
 
-Local state is stored in the app's browser storage (`forma.v1`). Reinstalling the source project normally leaves the Electron profile intact; deleting app data clears progress. The browser preview has separate storage. This is self-study, not secure proctoring: reference answers exist in the local code. The app blocks its quiz during a timed attempt, but does not restrict other applications or prevent inspecting source code.
+
+The **Calc formulas** topic contains 25 questions (20 new), based on the INDEX + MATCH workflow in `formuly.docx`. A full eight-question round includes two questions for each skill: explain the formula, choose when to use it, evaluate a small example, and diagnose an error. Scenarios cover lookup/return ranges, exact matches, position versus ID, absolute references, copying down, duplicates, whitespace, missing parents and freezing export values. Every question has a hint and an explanation. The original handout teaches these two functions, not an unrelated catalogue of spreadsheet functions. Function behavior was cross-checked against [LibreOffice Help](https://help.libreoffice.org/latest/ru/text/scalc/01/04060109.html). Existing saved rounds keep their original questions.
+
+Local state is stored in the app's browser storage (`forma.v1`). The legacy storage key, origin and profile directory are retained after renaming to preserve progress. Reinstalling the source project normally leaves the Electron profile intact; deleting app data clears progress. The browser preview has separate storage. This is self-study, not secure proctoring: reference answers exist in the local code. The app blocks its quiz during a timed attempt, but does not restrict other applications or prevent inspecting source code.
 
 Developer commands:
 
@@ -45,11 +48,36 @@ npm run package        # Unsigned desktop bundle for the current OS/architecture
 
 The browser preview downloads CSV, assignment, and metadata individually. The desktop app saves them together through a folder picker. Desktop smoke tests write screenshots and test exports to a temporary directory and do not modify the real study profile. Packaging is unsigned; Windows builds and signing should be verified on Windows before distribution.
 
-Source map: `electron/` contains the isolated desktop shell and narrow export API; `src/core/` contains deterministic generators, CSV serialization, quiz content, and timer logic; `src/app.js` contains the UI; `tests/` covers the logic and desktop workflow. The renderer has no Node.js access, cannot navigate to arbitrary pages, and loads local assets only.
+Source map: `electron/` contains the isolated desktop shell and narrow export API; `src/core/` contains deterministic generators, CSV serialization, quiz content, and timer logic; `src/app.ts` contains the UI; `tests/` covers the logic and desktop workflow. The renderer has no Node.js access, cannot navigate to arbitrary pages, and loads local assets only.
 
 Not implemented yet: reading your normalized CSV files back, checking arbitrary database schemas or SQL queries, launching/configuring Calc or PostgreSQL, strict focus restrictions, or modules 2–4. The sections below describe the full intended curriculum; the list above is the current implementation boundary.
 
-Verified on macOS Apple Silicon: all 12 logic tests and the Electron workflow smoke test pass; packaging produces `release/Forma-darwin-arm64/Forma.app`. Open this local bundle in Finder without Node.js. Launching the packaged bundle itself has not been verified through UI automation (macOS computer-control permission was unavailable). Windows runtime testing is still pending.
+Verified on macOS Apple Silicon: all 21 logic tests and the Electron workflow smoke test pass; packaging produces `release/formatted-darwin-arm64/formatted.app`. Open this local bundle in Finder without Node.js. Launching the packaged bundle itself has not been verified through UI automation (macOS computer-control permission was unavailable). Windows runtime testing is still pending.
+
+CSV preview uses the full content width below the settings form. All rows are available in pages of 10, with fixed headers and row numbers, wrapped cell text, and horizontal scrolling. Preview navigation does not change the source CSV or discard unsaved form settings.
+
+**New variant** assigns a fresh code and changes all three selection conditions relative to the previous variant. **Open by code** reproduces the entered code with the selected domain, row count, and difficulty. Changing the domain immediately refreshes the data, labels, rules, and tasks. Saved timed attempts still use the unchanged version-1 seeded generator. The same `src/assets/forma.svg` mark is used in navigation and the favicon; `npm run icons` regenerates PNG/ICO assets and, on macOS, ICNS for packaging.
+
+
+### Code conventions
+
+The application, Electron shell and build scripts use strict TypeScript. The baseline is [Google TypeScript Style (gts)](https://github.com/google/gts), with 2-space indentation, single quotes, semicolons and automatic formatting. ESLint also covers CommonJS TypeScript (`.cts`) used by Electron. Keep comments brief and explain decisions, not obvious statements. Do not use `any`, `@ts-ignore` or `@ts-nocheck` to bypass type errors.
+
+- `npm run fix`: apply gts formatting and safe lint fixes
+- `npm run format`: also format CSS, HTML, configuration and black-box JavaScript tests
+- `npm run typecheck`: check strict types without emitting files
+- `npm run check`: check types, lint and run the regression tests
+- `npm run build`: compile into ignored `build/` and copy static assets
+
+Start, preview, tests and packaging build automatically. After pulling this migration into an existing checkout, run `npm ci` once. Never edit generated JavaScript in `build/`. For browser development use `npm run preview`; the existing `src/index.html` file preview also works after a build. The tests deliberately exercise the compiled public modules from JavaScript. CI runs the same checks; desktop UI checks remain a separate `npm run test:desktop` command.
+
+Learning logic stays in `src/core/`, shared data contracts in `src/core/types.ts`, browser controls in `src/selects.ts` and `src/numbers.ts`, and the narrow desktop bridge in `electron/preload.cts`. Validate external input at runtime as well as with types. Saved profiles and generator version 1 remain compatible. The `tmp` override updates a vulnerable transitive gts development dependency; it is not an application runtime dependency.
+
+### Future backend direction (not implemented)
+
+Keep offline study available without a server. A later backend can expose the same versioned API either on `127.0.0.1` for one local user or behind HTTPS on a Linux host. Share transport-independent contracts and learning logic, not Electron or DOM code. Add a repository/API adapter when the first concrete backend feature is agreed.
+
+Before implementation, choose which data is shared (question packs, progress, accounts), whether multiple devices need synchronization, conflict rules, and backup/export requirements. Remote deployment additionally needs authentication, authorization, TLS, migrations and backups. No server is required or purchased for the current trainer.
 
 ## 1. Agreed requirements and open questions
 

@@ -1,10 +1,22 @@
 :root {
-  color-scheme: dark;
-  --bg: #121014;
-  --sidebar: #171519;
-  --panel: #1b171f;
-  --line: #2c2632;
-  --text: #ece5f1;
-  --muted: #a094ac;
-  --accent: #b18bdc;
+  /* Inspired by Magritte design tokens 25.1.0; text, controls and accent adapted for contrast. */
+  color-scheme: light;
+  --bg: #f1f4f9;
+  --sidebar: #ffffff;
+  --panel: #ffffff;
+  --soft: #f1f4f9;
+  --hover: #e5ebf3;
+  --line: #dce3eb;
+  --line-strong: #8290a0;
+  --text: #20262b;
+  --muted: #586776;
+  --accent: #006bea;
+  --accent-strong: #005bd1;
+  --accent-soft: #edf6ff;
+  --on-accent: #ffffff;
+  --positive: #176638;
+  --positive-soft: #e8f9ec;
+  --negative: #a53022;
+  --negative-soft: #fef2ef;
+  --info-text: #254d76;
 }

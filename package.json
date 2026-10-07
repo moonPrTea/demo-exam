@@ -1,17 +1,42 @@
 {
-  "name": "forma-exam",
+  "name": "formatted",
+  "productName": "formatted",
   "version": "0.1.0",
   "private": true,
   "description": "Offline, concept-first database exam practice",
   "type": "module",
-  "main": "electron/main.cjs",
+  "main": "build/electron/main.cjs",
   "scripts": {
+    "build": "tsc && node build/scripts/copy-assets.js",
+    "typecheck": "tsc --noEmit",
+    "lint": "gts lint \"src/**/*.ts\" \"electron/**/*.cts\" \"scripts/**/*.{ts,cts}\" eslint.config.js",
+    "fix": "gts fix \"src/**/*.ts\" \"electron/**/*.cts\" \"scripts/**/*.{ts,cts}\" eslint.config.js",
+    "format": "prettier --write \"src/**/*.{ts,css,html}\" \"electron/**/*.cts\" \"scripts/**/*.{ts,cts}\" \"tests/**/*.{js,cjs}\" *.json eslint.config.js",
+    "check": "npm run typecheck && npm run lint && npm test",
+    "prestart": "npm run build",
     "start": "electron .",
-    "preview": "node scripts/preview.js",
+    "prepreview": "npm run build",
+    "preview": "node build/scripts/preview.js",
+    "pretest": "npm run build",
     "test": "node --test tests/*.test.js",
+    "pretest:desktop": "npm run build",
     "test:desktop": "electron tests/desktop.cjs",
-    "package": "electron-packager . Forma --out=release --ignore=\"^/(tests|scripts|release|\\.git|\\.idea)(/|$)\""
+    "preicons": "npm run build",
+    "icons": "electron build/scripts/build-icons.cjs",
+    "prepackage": "npm run build",
+    "package": "electron-packager . formatted --out=release --icon=src/assets/forma --ignore=\"^/(tests|scripts|src|release|\\.git|\\.idea)(/|$)\""
   },
-  "engines": { "node": ">=22.12.0" },
-  "devDependencies": { "electron": "44.5.1", "@electron/packager": "20.3.0" }
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "devDependencies": {
+    "@electron/packager": "20.3.0",
+    "@types/node": "^26.6.4",
+    "electron": "44.5.1",
+    "gts": "^7.0.0",
+    "typescript": "^6.0.3"
+  },
+  "overrides": {
+    "tmp": "^0.2.6"
+  }
 }

@@ -1,0 +1,20 @@
+{
+  "extends": "gts/tsconfig-google.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "build",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "composite": false,
+    "strict": true,
+    "skipLibCheck": true
+  },
+  "include": [
+    "src/**/*.ts",
+    "electron/**/*.cts",
+    "scripts/**/*.ts",
+    "scripts/**/*.cts"
+  ]
+}
