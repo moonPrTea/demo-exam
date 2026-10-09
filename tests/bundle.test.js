@@ -8,6 +8,7 @@ import {
 } from '../build/src/core/generator.js';
 import {validateState} from '../build/src/core/storage.js';
 import {startSession} from '../build/src/core/session.js';
+import {themeFixture} from './ai-fixture.js';
 
 function readCsv(text, delimiter) {
   const rows = [];
@@ -250,6 +251,16 @@ function normalize(data) {
 }
 
 for (const domain of ['retail', 'library', 'courses']) {
+  test(`${domain}: AI vocabulary preserves twelve-table dependencies and references`, () => {
+    for (const difficulty of ['basic', 'advanced']) {
+      const data = generateDataset({
+        domain,
+        difficulty,
+        aiTheme: themeFixture(domain),
+      });
+      normalize(data);
+    }
+  });
   test(`${domain}: three connected sources can be normalized into twelve tables`, () => {
     for (const difficulty of ['basic', 'advanced'])
       for (const size of [20, 60, 500])

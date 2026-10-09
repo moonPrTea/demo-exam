@@ -1,6 +1,7 @@
 import {query, errorMessage, html} from './dom.js';
 import type {
   AppState,
+  AiTheme,
   Config,
   Dataset,
   Domain,
@@ -20,6 +21,9 @@ import {
   sourceFiles,
 } from './core/generator.js';
 import {FORMULA_SCOPE} from './core/formula-questions.js';
+import {AI_MODEL} from './core/ai-theme.js';
+import {calcLesson} from './core/calc-lesson.js';
+import {toCsv} from './core/csv.js';
 import {questions, topics, makeQuiz} from './core/quiz.js';
 import {
   startSession,
@@ -42,6 +46,16 @@ const initial = (): AppState => ({
   exports: 0,
 });
 let state = initial();
+let aiDraft: AiTheme | null = null;
+let aiDraftConfig: Config | null = null;
+let aiBusy = false;
+let aiTopic = '';
+let aiMessage = '';
+let lessonStep = 0;
+let lessonAnswer: number | null = null;
+let calcBusy = false;
+let calcMessage = '';
+let sidebarCollapsed = false;
 let storageWarning = '';
 try {
   const stored = JSON.parse(localStorage.getItem(KEY) ?? 'null') as unknown;
@@ -107,7 +121,10 @@ const label: Record<View, string> = {
   generator: 'Генератор данных',
   practice: 'На время',
   history: 'Мой прогресс',
+  lesson: 'Разбор CSV в Calc',
 };
+const navigation: View[] = [];
+let navigationIndex = -1;
 const button = (action: string, text: string, kind = '', extra = '') =>
   html`<button class="button ${kind}" data-action="${action}" ${extra}>
     ${text}
@@ -166,10 +183,12 @@ function shell(content: string) {
     ['home', 'home'],
     ['quiz', 'quiz'],
     ['generator', 'database'],
+    ['lesson', 'book'],
     ['practice', 'clock'],
     ['history', 'chart'],
   ];
-  return html`<div class="layout">
+  return html`${windowBar()}
+    <div class="layout ${sidebarCollapsed ? 'sidebar-collapsed' : ''}">
       <aside class="rail">
         <a class="brand-mark" href="#home" aria-label="formatted, главная"
           ><img class="brand-logo" src="assets/forma.svg" alt=""
@@ -225,18 +244,6 @@ function shell(content: string) {
         <div class="sidebar-footer">МОДУЛЬ 01 <span>v0.1</span></div>
       </aside>
       <div class="main-shell">
-        <header class="topbar">
-          <div class="breadcrumbs">
-            Подготовка ${icon('chevron')}
-            <span>${label[state.view] ?? 'Обзор'}</span>
-          </div>
-          <div class="topbar-right">
-            ${active() ? html`<button class="timer-pill" data-view="practice">${icon('clock')}<span data-clock>${formatTime(remainingMs(state.session))}</span></button>` : '<span class="local-pill"><span class="connection-dot"></span> Локальный режим</span>'}<span
-              class="topbar-module"
-              >Модуль 01</span
-            >
-          </div>
-        </header>
         <main id="main" tabindex="-1">
           ${storageWarning ? html`<div class="notice">${esc(storageWarning)}</div>` : ''}${content}
         </main>
@@ -257,6 +264,164 @@ function shell(content: string) {
         ${button('cancel-finish', 'Продолжить работу', 'secondary')}${button('confirm-finish', 'Завершить', 'primary')}
       </div>
     </dialog>`;
+}
+
+function windowBar() {
+  const platform = window.desktop?.platform ?? 'browser';
+  return html`<header class="window-bar platform-${platform}">
+    <div class="window-navigation">
+      <button
+        class="chrome-button"
+        data-action="toggle-sidebar"
+        aria-label="Переключить боковую панель"
+        aria-expanded="${!sidebarCollapsed}"
+        title="Боковая панель"
+      >
+        <svg
+          class="icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.7"
+        >
+          <rect x="3" y="4" width="18" height="16" rx="2" />
+          <path d="M9 4v16" />
+        </svg>
+      </button>
+      <button
+        class="chrome-button back-icon"
+        data-action="nav-back"
+        aria-label="Назад"
+        ${navigationIndex <= 0 ? 'disabled' : ''}
+      >
+        ${icon('arrow')}
+      </button>
+      <button
+        class="chrome-button"
+        data-action="nav-forward"
+        aria-label="Вперёд"
+        ${navigationIndex >= navigation.length - 1 ? 'disabled' : ''}
+      >
+        ${icon('arrow')}
+      </button>
+      <div class="window-modes" aria-label="Режим работы">
+        <button
+          class="chrome-button ${state.view === 'lesson' ? 'selected' : ''}"
+          data-view="lesson"
+          aria-label="Учиться в Calc"
+          title="Разбор CSV"
+        >
+          ${icon('book')}
+        </button>
+        <button
+          class="chrome-button ${state.view === 'generator' ? 'selected' : ''}"
+          data-view="generator"
+          aria-label="Генерировать данные"
+          title="Генератор"
+        >
+          ${icon('database')}
+        </button>
+      </div>
+    </div>
+    <div class="window-title">
+      <span>formatted</span><strong>${label[state.view]}</strong>
+    </div>
+    <div class="window-status">
+      ${active() ? html`<button class="timer-pill" data-view="practice">${icon('clock')}<span data-clock>${formatTime(remainingMs(state.session))}</span></button>` : html`<span class="connection-dot"></span><span class="local-label">На этом устройстве</span>`}
+    </div>
+  </header>`;
+}
+
+function lessonView() {
+  const step = calcLesson.steps[lessonStep];
+  const rows = calcLesson.rows.map(row =>
+    row.map((value, col) => (lessonStep && col === 2 ? value.trim() : value)),
+  );
+  return html`${heading('ПРАКТИКА С ПОЯСНЕНИЯМИ', calcLesson.title, 'Один небольшой файл, семь шагов. Только приёмы из памятки преподавателя')}
+    <div class="lesson-layout">
+      <nav class="panel lesson-nav" aria-label="Шаги урока">
+        ${calcLesson.steps.map((item, i) => html`<button data-action="lesson-step" data-step="${i}" class="lesson-step ${i === lessonStep ? 'selected' : ''}" ${i === lessonStep ? 'aria-current="step"' : ''}><span>${String(i + 1).padStart(2, '0')}</span>${esc(item.title)}</button>`).join('')}
+      </nav>
+      <section class="panel lesson-body">
+        <div class="lesson-heading">
+          <span class="pill subtle"
+            >Шаг ${lessonStep + 1} из ${calcLesson.steps.length}</span
+          ><span>${esc(step.target)}</span>
+        </div>
+        <h2>${esc(step.title)}</h2>
+        <ol class="lesson-instructions">
+          ${step.instructions.map(item => html`<li>${esc(item)}</li>`).join('')}
+        </ol>
+        ${
+          step.formula
+            ? html`<pre
+                  class="lesson-formula"
+                ><code>${esc(step.formula)}</code></pre>
+                <p class="small-note">
+                  Если включены английские имена функций, ИНДЕКС называется
+                  INDEX, ПОИСКПОЗ называется MATCH
+                </p>`
+            : ''
+        }
+        <p class="lesson-reason">${esc(step.why)}</p>
+        <div class="lesson-example table-scroll">
+          <table class="data-table">
+            <caption>
+              Один исходный файл, четыре
+              товара${lessonStep ? ', категории очищены' : ''}
+            </caption>
+            <thead>
+              <tr>
+                ${['Код', 'Товар', 'Категория'].map(name => html`<th>${name}</th>`).join('')}${lessonStep >= 3 ? '<th>Позиция</th>' : ''}${lessonStep >= 4 ? '<th>Ключ</th>' : ''}
+              </tr>
+            </thead>
+            <tbody>
+              ${rows
+                .map(
+                  row =>
+                    html`<tr>
+                      <td>${esc(row[0])}</td>
+                      <td>${esc(row[1])}</td>
+                      <td class="lesson-cell">${esc(row[2])}</td>
+                      ${lessonStep >= 3 ? html`<td>${calcLesson.categories.findIndex(category => category[1] === row[2]) + 1}</td>` : ''}${lessonStep >= 4 ? html`<td>${calcLesson.categories.find(category => category[1] === row[2])?.[0]}</td>` : ''}
+                    </tr>`,
+                )
+                .join('')}
+            </tbody>
+          </table>
+        </div>
+        ${lessonStep >= 2 ? html`<div class="lesson-dictionary"><b>Справочник «Категории»</b>${calcLesson.categories.map(([id, name], i) => html`<span>${id}: ${esc(name)} <small>позиция ${i + 1}</small></span>`).join('')}</div>` : ''}
+        <fieldset class="lesson-question">
+          <legend>${esc(step.question)}</legend>
+          <div class="actions">
+            ${step.options.map((option, i) => button('lesson-answer', esc(option), lessonAnswer === i ? 'primary' : 'secondary', `data-answer="${i}" aria-pressed="${lessonAnswer === i}"`)).join('')}
+          </div>
+          ${lessonAnswer !== null ? html`<p role="status">${lessonAnswer === step.answer ? 'Верно' : 'Пока нет'}. ${esc(step.explanation)}</p>` : ''}
+        </fieldset>
+        <div class="lesson-controls actions">
+          ${button('lesson-prev', 'Предыдущий шаг', 'secondary', lessonStep === 0 ? 'disabled' : '')}${button('lesson-next', 'Следующий шаг', 'primary', lessonStep === calcLesson.steps.length - 1 ? 'disabled' : '')}
+        </div>
+      </section>
+    </div>
+    <section class="panel calc-launch">
+      <h2>Посмотреть этот шаг в настоящем Calc</h2>
+      <p>
+        Python открывает учебную копию с выделенной ячейкой и листом
+        «Подсказка». Каждый шаг независимый: свои изменения сохраняй отдельно,
+        они не переносятся в следующий шаг
+      </p>
+      <div class="actions">
+        ${window.desktop ? button('open-calc', calcBusy ? 'Открываем…' : 'Открыть шаг в Calc', 'primary', calcBusy ? 'disabled' : '') + button('check-calc', 'Проверить Python и Calc', 'secondary', calcBusy ? 'disabled' : '') : '<span class="small-note">Открытие Calc доступно в desktop-приложении, не в браузерном превью</span>'}${button('lesson-source', 'Скачать исходный CSV', 'secondary')}
+      </div>
+      <p class="calc-status" role="status" aria-live="polite">
+        ${esc(calcMessage)}
+      </p>
+      <p class="small-note">
+        Нужны Python 3.9+ и LibreOffice Calc. Урок не устанавливает программы,
+        не управляет мышью и не меняет открытые документы. В режиме на время
+        подсказки недоступны
+      </p>
+    </section>`;
 }
 
 function heading(
@@ -497,7 +662,7 @@ function datasetInfo(dataset: Dataset) {
         >
       </div>
       <div class="dataset-summary">
-        <h2>${dataset.domain.name}</h2>
+        <h2>${esc(dataset.domain.name)}</h2>
         <p>${caption(source.grain)}</p>
       </div>
       <span class="pill subtle">${esc(dataset.config.seed)}</span>
@@ -605,6 +770,16 @@ function generator() {
         <div class="small-note">
           «Новый вариант» меняет данные и все три условия выборок. «Открыть по
           коду» повторяет набор с указанными параметрами
+          ${
+            state.config.aiTheme
+              ? html`<p>
+                    AI-тема: ${esc(state.config.aiTheme.title)}. Для повторения
+                    сохрани variant.json: одного кода недостаточно
+                  </p>
+                  ${button('clear-ai', 'Вернуться к обычной теме', 'secondary')}`
+              : ''
+          }
+          ${button('show-ai', 'Создать тему с локальной AI', 'text-button')}
         </div>
       </section>
       <div class="generator-right">
@@ -635,12 +810,138 @@ function generator() {
       <div>
         <span class="eyebrow">СНАЧАЛА ПРОЧИТАЙ</span>
         <h2>Правила предметной области</h2>
-        <p>${data.domain.description}</p>
+        <p>${esc(data.domain.description)}</p>
       </div>
       <ul>
         ${data.rules.map(rule => html`<li>${esc(rule)}</li>`).join('')}
       </ul>
-    </section>`;
+    </section>
+    ${aiPanel()}`;
+}
+
+function aiPanel() {
+  return html`<section class="panel ai-panel" id="ai-panel">
+    <div class="panel-title">
+      <h2>Новая тема с локальной AI</h2>
+      <span class="pill subtle">Эксперимент</span>
+    </div>
+    <p>
+      Qwen предлагает названия и описание внутри выбранной модели данных:
+      торговля, библиотека книг или учебный центр. Новые схемы отношений она не
+      создаёт
+    </p>
+    <p class="small-note">
+      Только локальная генерация, без аккаунта и API-ключа. Вводи вымышленную
+      тему, не персональные данные. Скриншоты и макеты WinForms не меняются
+    </p>
+    ${
+      window.desktop
+        ? html`<form id="ai-form">
+            <label
+              >Тема задания<input
+                id="ai-topic"
+                name="topic"
+                maxlength="300"
+                required
+                placeholder="Например, магазин спортивной одежды"
+                value="${esc(aiTopic)}"
+                ${aiBusy || active() ? 'disabled' : ''}
+            /></label>
+            <div class="actions">
+              <button
+                type="submit"
+                class="button primary"
+                ${aiBusy || active() ? 'disabled' : ''}
+              >
+                ${aiBusy ? 'Подожди завершения…' : 'Предложить тему'}
+              </button>
+              ${aiBusy ? button('cancel-ai', 'Отменить', 'secondary') : button('check-ai', 'Проверить подключение', 'secondary', active() ? 'disabled' : '')}
+            </div>
+          </form>`
+        : '<div class="notice">В браузерном превью подключение к модели отключено. Запусти desktop-приложение через npm start</div>'
+    }
+    <p class="ai-status" role="status" aria-live="polite">${esc(aiMessage)}</p>
+    <details class="ai-setup">
+      <summary>Как подключить бесплатную локальную модель</summary>
+      <ol>
+        <li>Установи Ollama с официального сайта ollama.com для своей ОС</li>
+        <li>Открой Ollama и нажми «Скачать модель» ниже</li>
+        <li>После загрузки укажи тему и нажми «Предложить тему»</li>
+      </ol>
+      <p>
+        ${AI_MODEL} занимает около 2,5 ГБ на диске и требует свободной
+        оперативной памяти для работы. Интернет нужен только для скачивания
+        модели. Адрес подключения задан приложением, настройки и ключи не нужны
+      </p>
+      ${window.desktop ? button('download-ai', 'Скачать модель', 'secondary', aiBusy || active() ? 'disabled' : '') : ''}
+    </details>
+    ${
+      aiDraft
+        ? html`<div class="ai-draft">
+            <span class="pill subtle">Черновик, ещё не применён</span>
+            <h3>${esc(aiDraft.title)}</h3>
+            <p>${esc(aiDraft.description)}</p>
+            <details>
+              <summary>Проверить тематические названия</summary>
+              ${Object.entries(aiDraft.values)
+                .map(
+                  ([field, values]) =>
+                    html`<p>
+                      <b>${esc(field)}</b>: ${values.map(esc).join(', ')}
+                    </p>`,
+                )
+                .join('')}
+            </details>
+            <p class="small-note">
+              Проверена структура ответа, не фактическая или смысловая точность
+              текста. Применение заменит текущий вариант, сохранённые попытки не
+              изменятся
+            </p>
+            <div class="actions">
+              ${button('apply-ai', 'Применить тему', 'primary', aiBusy || active() ? 'disabled' : '')}${button('discard-ai', 'Отклонить', 'secondary', aiBusy ? 'disabled' : '')}
+            </div>
+          </div>`
+        : ''
+    }
+    <div class="actions ai-import">
+      ${button('import-variant', 'Открыть variant.json', 'secondary', active() || aiBusy ? 'disabled' : '')}<input
+        type="file"
+        id="variant-import"
+        accept=".json,application/json"
+        hidden
+      />
+    </div>
+  </section>`;
+}
+
+function refreshAiPanel() {
+  const panel = document.querySelector('#ai-panel');
+  if (panel) panel.outerHTML = aiPanel();
+}
+
+async function proposeTheme() {
+  if (!window.desktop || aiBusy || active()) return;
+  const form = query<HTMLFormElement>('#generator-form');
+  if (!form.reportValidity()) return;
+  aiBusy = true;
+  aiDraft = null;
+  aiMessage =
+    'Ожидаем локальную модель, до 3 минут. Можно продолжать пользоваться приложением';
+  refreshAiPanel();
+  try {
+    const config = normalizeConfig({
+      ...Object.fromEntries(new FormData(form)),
+      generatorVersion: 2,
+    });
+    aiDraft = await window.desktop.generateAiTheme(config, aiTopic);
+    aiDraftConfig = config;
+    aiMessage = 'Черновик готов. Проверь описание и названия перед применением';
+  } catch (error) {
+    aiMessage = errorMessage(error);
+  } finally {
+    aiBusy = false;
+    refreshAiPanel();
+  }
 }
 
 function quizView() {
@@ -814,7 +1115,7 @@ function practice() {
             <h2>01. Исходники и условия</h2>
             ${exportButtons(data)}
           </div>
-          <p>${data.domain.description}</p>
+          <p>${esc(data.domain.description)}</p>
           <ul class="rules-list">
             ${sourceFiles(data)
               .map(
@@ -935,7 +1236,10 @@ function historyTable(limit = 100) {
       kind: 'practice',
       id: s.id,
       time: s.finishedAt!,
-      name: domains.find(d => d.id === s.config.domain)?.name ?? '',
+      name:
+        s.config.aiTheme?.title ??
+        domains.find(d => d.id === s.config.domain)?.name ??
+        '',
       sub: s.config.seed,
       result: `${gradeTasks(generateDataset(s.config), s.answers).filter(g => g.correct).length} / 3`,
       badge: s.status === 'expired' ? 'Время вышло' : 'Завершено',
@@ -1089,8 +1393,17 @@ function history() {
 function render() {
   closeSelectMenu();
   if (!label[state.view]) state.view = 'home';
+  if (active() && (state.view === 'lesson' || state.view === 'quiz'))
+    state.view = 'practice';
+  if (navigation[navigationIndex] !== state.view) {
+    navigation.splice(navigationIndex + 1);
+    navigation.push(state.view);
+    navigationIndex = navigation.length - 1;
+  }
   query('#app').innerHTML = shell(
-    {home, generator, quiz: quizView, practice, history}[state.view](),
+    {home, generator, quiz: quizView, practice, history, lesson: lessonView}[
+      state.view
+    ](),
   );
   enhanceSelects(query('#app'));
   enhanceNumbers(query('#app'));
@@ -1152,7 +1465,7 @@ document.addEventListener('click', async event => {
       return;
     }
     if (target.dataset.view) {
-      if (active() && target.dataset.view === 'quiz') {
+      if (active() && ['quiz', 'lesson'].includes(target.dataset.view)) {
         toast('Блиц и подсказки доступны после завершения попытки.');
         return;
       }
@@ -1162,6 +1475,132 @@ document.addEventListener('click', async event => {
       return;
     }
     switch (target.dataset.action) {
+      case 'toggle-sidebar':
+        sidebarCollapsed = !sidebarCollapsed;
+        render();
+        return;
+      case 'nav-back':
+      case 'nav-forward': {
+        const index =
+          navigationIndex + (target.dataset.action === 'nav-back' ? -1 : 1);
+        const view = navigation[index];
+        if (!view) return;
+        if (active() && ['quiz', 'lesson'].includes(view)) {
+          toast('Подсказки доступны после завершения попытки');
+          return;
+        }
+        navigationIndex = index;
+        state.view = view;
+        break;
+      }
+      case 'lesson-step':
+      case 'lesson-prev':
+      case 'lesson-next':
+        if (active()) return;
+        lessonStep =
+          target.dataset.action === 'lesson-step'
+            ? Number(target.dataset.step)
+            : lessonStep + (target.dataset.action === 'lesson-next' ? 1 : -1);
+        lessonStep = Math.max(
+          0,
+          Math.min(calcLesson.steps.length - 1, lessonStep),
+        );
+        lessonAnswer = null;
+        calcMessage = '';
+        break;
+      case 'lesson-answer':
+        if (active()) return;
+        lessonAnswer = Number(target.dataset.answer);
+        break;
+      case 'check-calc':
+      case 'open-calc':
+        if (!window.desktop || active() || calcBusy) return;
+        calcBusy = true;
+        calcMessage = 'Проверяем доступные программы';
+        render();
+        try {
+          const result =
+            target.dataset.action === 'open-calc'
+              ? await window.desktop.openCalcLesson(lessonStep)
+              : await window.desktop.calcStatus();
+          calcMessage =
+            result.message +
+            (result.directory ? `\nПапка примера: ${result.directory}` : '');
+        } catch (error) {
+          calcMessage = errorMessage(error);
+        } finally {
+          calcBusy = false;
+          render();
+        }
+        return;
+      case 'lesson-source': {
+        if (active()) return;
+        const rows = calcLesson.rows.map(row =>
+          Object.fromEntries(
+            calcLesson.headers.map((field, i) => [field, row[i]]),
+          ),
+        );
+        const url = URL.createObjectURL(
+          new Blob([toCsv(calcLesson.headers, rows, ';')], {
+            type: 'text/csv;charset=utf-8',
+          }),
+        );
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'source.csv';
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        return;
+      }
+      case 'show-ai':
+        query('#ai-panel').scrollIntoView({behavior: 'smooth', block: 'start'});
+        return;
+      case 'check-ai':
+        if (!window.desktop || active() || aiBusy) return;
+        target.disabled = true;
+        try {
+          aiMessage = (await window.desktop.aiStatus()).message;
+        } catch (error) {
+          aiMessage = errorMessage(error);
+        }
+        refreshAiPanel();
+        return;
+      case 'cancel-ai':
+        await window.desktop?.cancelAiTheme();
+        return;
+      case 'download-ai':
+        if (!window.desktop || active() || aiBusy) return;
+        aiBusy = true;
+        aiMessage =
+          'Подтверди скачивание модели. Загрузка может занять несколько минут';
+        refreshAiPanel();
+        try {
+          aiMessage = (await window.desktop.downloadAiModel()).message;
+        } catch (error) {
+          aiMessage = errorMessage(error);
+        } finally {
+          aiBusy = false;
+          refreshAiPanel();
+        }
+        return;
+      case 'apply-ai':
+        if (!aiDraft || !aiDraftConfig || active() || aiBusy) return;
+        state.config = normalizeConfig({...aiDraftConfig, aiTheme: aiDraft});
+        aiDraft = null;
+        aiMessage = 'Тема применена и сохранена локально';
+        break;
+      case 'discard-ai':
+        aiDraft = null;
+        refreshAiPanel();
+        return;
+      case 'clear-ai':
+        if (active()) return;
+        state.config = normalizeConfig({...state.config, aiTheme: undefined});
+        break;
+      case 'import-variant':
+        if (!active() && !aiBusy)
+          query<HTMLInputElement>('#variant-import').click();
+        return;
       case 'csv-source':
         csvSource = Number(target.dataset.source);
         csvPage = 0;
@@ -1194,9 +1633,11 @@ document.addEventListener('click', async event => {
           state.view = 'practice';
           break;
         }
-        state.config.domain = normalizeConfig({
+        state.config = normalizeConfig({
+          ...state.config,
           domain: target.dataset.domain,
-        }).domain;
+          aiTheme: undefined,
+        });
         state.view = 'generator';
         break;
       case 'random-seed':
@@ -1299,8 +1740,8 @@ function applyGenerator(randomize: boolean) {
   if (!form.reportValidity()) return;
   const values = Object.fromEntries(new FormData(form));
   state.config = randomize
-    ? newVariant(values, state.config, freshSeed)
-    : normalizeConfig(values);
+    ? newVariant(formConfig(values), state.config, freshSeed)
+    : formConfig(values);
   state.delimiter = String(values.delimiter);
   save();
   render();
@@ -1310,6 +1751,51 @@ function applyGenerator(randomize: boolean) {
       : 'Вариант открыт по коду.',
   );
 }
+
+function formConfig(values: Record<string, FormDataEntryValue>) {
+  return normalizeConfig({
+    ...values,
+    aiTheme:
+      values.domain === state.config.domain && values.generatorVersion === '2'
+        ? state.config.aiTheme
+        : undefined,
+  });
+}
+
+document.addEventListener('change', async event => {
+  const input = event.target;
+  if (
+    !(input instanceof HTMLInputElement) ||
+    input.id !== 'variant-import' ||
+    active() ||
+    aiBusy
+  )
+    return;
+  try {
+    const file = input.files?.[0];
+    if (!file) return;
+    if (file.size > 48_000) throw new Error('Файл параметров слишком большой');
+    const parsed: unknown = JSON.parse(await file.text());
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+      throw new Error('Неверный файл параметров');
+    const value = parsed as Record<string, unknown>;
+    const config = normalizeConfig({
+      ...value,
+      generatorVersion: value.generatorVersion ?? 1,
+    });
+    if (value.delimiter !== ';' && value.delimiter !== ',')
+      throw new Error('Неверный разделитель CSV');
+    if (active() || aiBusy) return;
+    state.config = config;
+    state.delimiter = value.delimiter;
+    aiDraft = null;
+    save();
+    render();
+    toast('Вариант восстановлен из файла');
+  } catch (error) {
+    toast(errorMessage(error), true);
+  }
+});
 
 document.addEventListener('change', event => {
   if (!(event.target instanceof HTMLSelectElement)) return;
@@ -1346,6 +1832,11 @@ document.addEventListener('submit', event => {
       return;
     }
     const values = Object.fromEntries(new FormData(form));
+    if (form.id === 'ai-form') {
+      aiTopic = String(values.topic ?? '');
+      void proposeTheme();
+      return;
+    }
     if (form.id === 'generator-form') {
       applyGenerator(true);
     }
@@ -1362,7 +1853,7 @@ document.addEventListener('submit', event => {
       render();
     }
     if (form.id === 'practice-form') {
-      const config = normalizeConfig(values);
+      const config = formConfig(values);
       state.session = startSession(config, Number(values.minutes));
       state.config = config;
       save();
@@ -1375,6 +1866,10 @@ document.addEventListener('submit', event => {
 
 document.addEventListener('input', event => {
   if (!(event.target instanceof HTMLInputElement)) return;
+  if (event.target.id === 'ai-topic') {
+    aiTopic = event.target.value;
+    return;
+  }
   if (!active()) return;
   if (Date.now() >= state.session!.deadline) {
     complete();

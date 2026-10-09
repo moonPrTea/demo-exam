@@ -1,4 +1,5 @@
 import {integer, pick, random, shuffle} from './random.js';
+import {applyAiTheme} from './ai-theme.js';
 import type {
   Config,
   CsvSource,
@@ -376,6 +377,14 @@ export function generateBundle(config: Config, domain: Domain): Dataset {
     `2:${config.domain}:${config.seed}:${config.size}:${config.difficulty}`,
   );
   const bundle = {retail, library, courses}[config.domain](rng, config.size);
+  if (config.aiTheme) {
+    applyAiTheme(bundle.sources, config.aiTheme);
+    domain = {
+      ...domain,
+      name: config.aiTheme.title,
+      description: config.aiTheme.description,
+    };
+  }
   const [catalog, users, operations] = bundle.sources;
   const category = pick(rng, catalog.rows)[bundle.category];
   const threshold = pick(rng, catalog.rows)[bundle.quantity];

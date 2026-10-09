@@ -1,4 +1,4 @@
-const {app, dialog, BrowserWindow} = require('electron');
+const {app, dialog, BrowserWindow, ipcMain} = require('electron');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const os = require('node:os');
@@ -12,7 +12,36 @@ async function run() {
   });
   app.setPath('userData', path.join(dir, 'profile'));
   await app.whenReady();
+  const {modelReply, themeFixture} = await import('./ai-fixture.js');
+  const {AI_MODEL} = await import('../build/src/core/ai-theme.js');
+  const aiRequests = [];
+  globalThis.fetch = async (url, options) => {
+    assert.ok(url.startsWith('http://127.0.0.1:11434/api/'));
+    aiRequests.push(url);
+    let result = {models: [{name: AI_MODEL}]};
+    if (url.endsWith('/api/pull')) result = {status: 'success'};
+    if (url.endsWith('/api/chat')) {
+      const body = JSON.parse(options.body);
+      result = modelReply(JSON.parse(body.messages[1].content).base);
+    }
+    return new Response(JSON.stringify(result));
+  };
   await setup();
+  const calcRequests = [];
+  ipcMain.removeHandler('calc-status');
+  ipcMain.handle('calc-status', () => ({
+    ready: false,
+    message: 'LibreOffice Calc не найден (тест)',
+  }));
+  ipcMain.removeHandler('calc-lesson');
+  ipcMain.handle('calc-lesson', (_event, step) => {
+    calcRequests.push(step);
+    return {
+      ready: true,
+      message: 'Учебная копия передана Calc (тест)',
+      directory: '/test/calc-lessons/step-5',
+    };
+  });
   const window = createWindow();
   window.webContents.setBackgroundThrottling(false);
   const errors = [];
@@ -78,6 +107,50 @@ async function run() {
   );
   assert.equal(await evaluate('document.querySelector(".orbital")'), null);
   await capture('home');
+  assert.match(await text('.window-title'), /formatted/);
+  assert.equal(
+    await evaluate(
+      'getComputedStyle(document.querySelector(".window-bar")).webkitAppRegion',
+    ),
+    'drag',
+  );
+  await click('[data-action="toggle-sidebar"]');
+  assert.equal(
+    await evaluate(
+      'getComputedStyle(document.querySelector(".sidebar")).display',
+    ),
+    'none',
+  );
+  await click('[data-action="toggle-sidebar"]');
+  await click('[data-view="lesson"]');
+  assert.match(await text('h1'), /От CSV к внешнему ключу/);
+  assert.equal(
+    await evaluate('document.querySelectorAll(".lesson-step").length'),
+    7,
+  );
+  await click('[data-action="nav-back"]');
+  assert.match(await text('h1'), /От данных/);
+  await click('[data-action="nav-forward"]');
+  assert.match(await text('h1'), /От CSV к внешнему ключу/);
+  await click('[data-action="lesson-step"][data-step="4"]');
+  assert.match(await text('.lesson-formula'), /ИНДЕКС.*ПОИСКПОЗ/);
+  await click('[data-action="lesson-answer"][data-answer="1"]');
+  assert.match(await text('.lesson-question'), /Пока нет/);
+  await click('[data-action="lesson-answer"][data-answer="0"]');
+  assert.match(await text('.lesson-question'), /Верно/);
+  await capture('calc-lesson');
+  await click('[data-action="open-calc"]');
+  await evaluate(`new Promise((resolve, reject) => {
+    const deadline = Date.now() + 3000;
+    const poll = () => {
+      if (!document.querySelector('[data-action="open-calc"]').disabled) return resolve();
+      if (Date.now() > deadline) return reject(new Error('Calc launch did not return'));
+      setTimeout(poll, 20);
+    }; poll();
+  })`);
+  assert.deepEqual(calcRequests, [4]);
+  assert.match(await text('.calc-status'), /Учебная копия передана/);
+  await click('[data-view="home"]');
 
   await click('[data-view="quiz"]');
   await click('[data-select-name="topic"]');
@@ -462,6 +535,8 @@ async function run() {
   );
   await click('[data-view="quiz"]');
   assert.match(await text('h1'), /Библиотека/);
+  await click('[data-view="lesson"]');
+  assert.match(await text('h1'), /Библиотека/);
   await click('[data-action="finish"]');
   await click('[data-action="confirm-finish"]');
   assert.match(await text('h1'), /Попытка завершена/);
@@ -511,6 +586,92 @@ async function run() {
   await capture('history-link-focus');
   await click('.history-link');
   assert.match(await text('h1'), /Время вышло|Попытка завершена/);
+
+  await click('[data-view="generator"]');
+  const waitForAi = () =>
+    evaluate(`new Promise((resolve, reject) => {
+    const deadline = Date.now() + 5000;
+    const poll = () => {
+      if (!document.querySelector('#ai-form button[type=submit]').disabled) return resolve();
+      if (Date.now() > deadline) return reject(new Error('AI did not finish'));
+      setTimeout(poll, 20);
+    };
+    poll();
+  })`);
+  assert.equal(aiRequests.length, 0);
+  const originalMessageBox = dialog.showMessageBox;
+  dialog.showMessageBox = async () => ({response: 0});
+  await click('[data-action="download-ai"]');
+  await waitForAi();
+  assert.equal(aiRequests.length, 0);
+  assert.match(await text('.ai-status'), /не начата/);
+  dialog.showMessageBox = async () => ({response: 1});
+  await click('[data-action="download-ai"]');
+  await waitForAi();
+  assert.match(await text('.ai-status'), /доступна локально/);
+  assert.equal(aiRequests.filter(url => url.endsWith('/api/pull')).length, 1);
+  dialog.showMessageBox = originalMessageBox;
+
+  await evaluate(`document.querySelector('#ai-topic').value = 'Библиотека книг о космосе';
+    document.querySelector('#ai-form').requestSubmit()`);
+  await waitForAi();
+  assert.match(await text('.ai-draft'), /Учебная мастерская/);
+  assert.equal(
+    await evaluate(
+      'JSON.parse(localStorage.getItem("forma.v1")).config.aiTheme',
+    ),
+    undefined,
+  );
+  await click('[data-action="show-ai"]');
+  await evaluate(
+    'document.querySelector("#ai-panel").scrollIntoView({behavior: "instant", block: "start"})',
+  );
+  await capture('ai-draft');
+  await click('[data-action="apply-ai"]');
+  assert.match(await text('.csv-preview'), /Учебная мастерская/);
+  const aiConfig = await evaluate(
+    'JSON.parse(localStorage.getItem("forma.v1")).config',
+  );
+  assert.deepEqual(aiConfig.aiTheme, themeFixture(aiConfig.domain));
+  reload = new Promise(resolve =>
+    window.webContents.once('did-finish-load', resolve),
+  );
+  await evaluate('location.reload()');
+  await reload;
+  assert.match(await text('.csv-preview'), /Учебная мастерская/);
+  await click('[data-action="clear-ai"]');
+  assert.equal(
+    await evaluate(
+      'JSON.parse(localStorage.getItem("forma.v1")).config.aiTheme',
+    ),
+    undefined,
+  );
+  const metadata = {...aiConfig, delimiter: ';'};
+  await evaluate(`(() => {
+    const file = new File([${JSON.stringify(JSON.stringify(metadata))}], 'variant.json', {type: 'application/json'});
+    const transfer = new DataTransfer(); transfer.items.add(file);
+    const input = document.querySelector('#variant-import'); input.files = transfer.files;
+    input.dispatchEvent(new Event('change', {bubbles: true}));
+  })()`);
+  await evaluate(`new Promise((resolve, reject) => {
+    const deadline = Date.now() + 5000;
+    const poll = () => {
+      if (JSON.parse(localStorage.getItem('forma.v1')).config.aiTheme) return resolve();
+      if (Date.now() > deadline) return reject(new Error('Variant import failed'));
+      setTimeout(poll, 20);
+    };
+    poll();
+  })`);
+  assert.match(await text('.csv-preview'), /Учебная мастерская/);
+  await click('[data-view="home"]');
+  await click('[data-action="domain"][data-domain="retail"]');
+  assert.equal(
+    await evaluate(
+      'JSON.parse(localStorage.getItem("forma.v1")).config.aiTheme',
+    ),
+    undefined,
+  );
+  assert.equal(aiRequests.filter(url => url.endsWith('/api/chat')).length, 1);
   const preview = new BrowserWindow({
     show: false,
     webPreferences: {
@@ -538,6 +699,27 @@ async function run() {
       '[...document.querySelectorAll("[data-file]")].map(button => button.dataset.file)',
     ),
     ['catalog.csv', 'users.csv', 'orders.csv', 'assignment.md', 'variant.json'],
+  );
+  assert.match(
+    await preview.webContents.executeJavaScript(
+      'document.querySelector("#ai-panel").textContent',
+    ),
+    /подключение к модели отключено/,
+  );
+  await preview.webContents.executeJavaScript(
+    'document.querySelector("[data-view=lesson]").click()',
+  );
+  assert.match(
+    await preview.webContents.executeJavaScript(
+      'document.querySelector(".calc-launch").textContent',
+    ),
+    /не в браузерном превью/,
+  );
+  assert.equal(
+    await preview.webContents.executeJavaScript(
+      'document.querySelector("[data-action=open-calc]")',
+    ),
+    null,
   );
   preview.destroy();
   assert.deepEqual(errors, []);

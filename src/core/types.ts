@@ -4,6 +4,7 @@ export type Random = () => number;
 export type Cell = string | number;
 export type Row = Record<string, Cell>;
 export type ConfigInput = {
+  aiTheme?: unknown;
   generatorVersion?: unknown;
   domain?: unknown;
   seed?: unknown;
@@ -12,11 +13,26 @@ export type ConfigInput = {
 };
 
 export interface Config {
+  aiTheme?: AiTheme;
   generatorVersion?: 1 | 2;
   domain: DomainId;
   seed: string;
   size: number;
   difficulty: Difficulty;
+}
+
+export interface AiTheme {
+  version: 1;
+  domain: DomainId;
+  model: string;
+  title: string;
+  description: string;
+  values: Record<string, string[]>;
+}
+
+export interface AiStatus {
+  ready: boolean;
+  message: string;
 }
 
 export interface Domain {
@@ -113,7 +129,8 @@ export interface PracticeSession {
   exported: boolean;
 }
 
-export type View = 'home' | 'quiz' | 'generator' | 'practice' | 'history';
+export type View =
+  'home' | 'quiz' | 'generator' | 'practice' | 'history' | 'lesson';
 
 export interface AppState {
   version: 1;
@@ -131,5 +148,19 @@ export type ExportResult =
   {canceled: true} | {directory: string; count: number; canceled?: false};
 
 export interface DesktopApi {
+  platform: string;
+  calcStatus(): Promise<CalcResult>;
+  openCalcLesson(step: number): Promise<CalcResult>;
+  downloadAiModel(): Promise<AiStatus>;
+  aiStatus(): Promise<AiStatus>;
+  generateAiTheme(config: Config, topic: string): Promise<AiTheme>;
+  cancelAiTheme(): Promise<void>;
   exportDataset(config: Config, delimiter: string): Promise<ExportResult>;
+}
+
+export interface CalcResult {
+  ready: boolean;
+  message: string;
+  directory?: string;
+  file?: string;
 }

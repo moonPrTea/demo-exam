@@ -10,6 +10,7 @@ import type {
 import {random, integer, pick, shuffle} from './random.js';
 import {toCsv} from './csv.js';
 import {generateBundle} from './source-bundle.js';
+import {validateAiTheme, WINFORMS_LAYOUT_RULE} from './ai-theme.js';
 
 export const GENERATOR_VERSION = 2;
 export const domains: Domain[] = [
@@ -91,7 +92,12 @@ export function normalizeConfig(input: ConfigInput = {}): Config {
     !['basic', 'advanced'].includes(config.difficulty)
   )
     throw new Error('Неизвестная сложность.');
-  return {...config, generatorVersion: version} as Config;
+  if (input.aiTheme !== undefined && version !== 2)
+    throw new Error('AI-темы доступны только для формата 3 CSV');
+  const result = {...config, generatorVersion: version} as Config;
+  if (input.aiTheme !== undefined)
+    result.aiTheme = validateAiTheme(input.aiTheme, result.domain);
+  return result;
 }
 
 function retail(rng: Random, count: number): SourceData {
@@ -401,6 +407,12 @@ function bundleAssignment(dataset: Dataset) {
     [
       `# ${dataset.domain.name} - вариант ${dataset.config.seed}`,
       `Генератор v2. Все записи вымышлены. ${dataset.domain.description}`,
+      ...(dataset.config.aiTheme
+        ? [
+            'Описание и тематические названия предложены локальной моделью. Проверь смысл перед использованием; структура и числовые ответы формируются приложением',
+          ]
+        : []),
+      'Учебная адаптация описания предметной области из Прил_1_ОЗ_КИМ_09.02.07-2-2027, не официальный экзаменационный вариант. Формат тренажёра: три CSV и 12 таблиц; количество файлов из примера не копируется',
       '## Три исходных CSV',
       ...sourceFiles(dataset).map(
         source =>
@@ -415,6 +427,12 @@ function bundleAssignment(dataset: Dataset) {
       ...dataset.tasks.map((task, i) => `${i + 1}. ${task.prompt}`),
       '## Вопросы для объяснения',
       ...dataset.questions.map(question => `- ${question}`),
+      '## Что сдать',
+      '- Рабочую книгу Calc с обработкой исходников и 12 CSV нормализованных таблиц\n- Собственный SQL создания БД и таблиц с PK, FK и обоснованными ограничениями\n- Результаты импорта, три выборки и объяснение связей',
+      '## Макеты и требования к WinForms',
+      WINFORMS_LAYOUT_RULE,
+      'Для последующих модулей используй оригинальные приложения к заданию. Этот экспорт не содержит скриншотов и не заменяет полный комплект экзамена. Формы создаются визуальным конструктором Visual Studio, обработчики пишутся на C#',
+      'Руководство Прил_3 сохраняется: Calibri, основной фон #FFFFFF, дополнительный #D2F6E7, акцент #70B2AF. Заголовки у всех форм, исходный логотип без изменения пропорций и цвета, иконка из ресурсов. В торговом примере суммарный остаток модели не более трёх выделяется #ff8080. Эти требования относятся к экзаменационному WinForms-приложению, не к интерфейсу тренажёра',
       '## Самопроверка',
       ...checklist.map(item => `- [ ] ${item}`),
       'Чек-лист является самооценкой. Автоматической проверки нормализации и официальной оценки экзамена нет',

@@ -35,3 +35,13 @@ release/
 coverage/
 build/
 *.tsbuildinfo
+
+# Private credentials and local models
+.ollama/
+models/
+*.gguf
+*.pem
+*.key
+.npmrc
+__pycache__/
+*.pyc

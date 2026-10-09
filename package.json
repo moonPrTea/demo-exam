@@ -5,7 +5,7 @@
   "private": true,
   "description": "Offline, concept-first database exam practice",
   "type": "module",
-  "main": "build/electron/main.cjs",
+  "main": "build/electron/start.cjs",
   "scripts": {
     "build": "tsc && node build/scripts/copy-assets.js",
     "typecheck": "tsc --noEmit",
@@ -21,10 +21,12 @@
     "test": "node --test tests/*.test.js",
     "pretest:desktop": "npm run build",
     "test:desktop": "electron tests/desktop.cjs",
+    "pretest:startup": "npm run build",
+    "test:startup": "electron tests/startup.cjs",
     "preicons": "npm run build",
     "icons": "electron build/scripts/build-icons.cjs",
     "prepackage": "npm run build",
-    "package": "electron-packager . formatted --out=release --icon=src/assets/forma --ignore=\"^/(tests|scripts|src|release|\\.git|\\.idea)(/|$)\""
+    "package": "electron-packager . formatted --out=release --icon=src/assets/forma --ignore=\"^/(tests|scripts|src|release|desktop-tools|source-package|\\.analysis|\\.git|\\.idea)(/|$)\""
   },
   "engines": {
     "node": ">=22.12.0"

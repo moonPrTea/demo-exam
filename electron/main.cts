@@ -12,6 +12,9 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import {pathToFileURL} from 'node:url';
 import type {ConfigInput, ExportResult} from '../src/core/types.js';
+import {createOllamaClient} from './ollama.cjs';
+import type {IpcMainInvokeEvent} from 'electron';
+import {runCalcLesson} from './calc.cjs';
 
 // Keep the existing profile and origin so the rename preserves progress.
 app.setPath(
@@ -30,6 +33,56 @@ const root = path.resolve(__dirname, '../src');
 const trusted = 'forma://app/index.html';
 
 async function setup() {
+  const ai = createOllamaClient();
+  const trustedAi = (event: IpcMainInvokeEvent) => {
+    if (
+      event.senderFrame?.url !== trusted ||
+      event.senderFrame !== event.sender.mainFrame
+    )
+      throw new Error('Untrusted request');
+  };
+  ipcMain.handle('ai-status', event => {
+    trustedAi(event);
+    return ai.status();
+  });
+  ipcMain.handle('calc-status', event => {
+    trustedAi(event);
+    return runCalcLesson();
+  });
+  ipcMain.handle('calc-lesson', (event, step: number) => {
+    trustedAi(event);
+    return runCalcLesson(
+      step,
+      path.join(app.getPath('userData'), 'calc-lessons'),
+    );
+  });
+  ipcMain.handle('ai-generate', (event, config: ConfigInput, topic: string) => {
+    trustedAi(event);
+    return ai.generate(config, topic);
+  });
+  ipcMain.handle('ai-cancel', event => {
+    trustedAi(event);
+    ai.cancel();
+  });
+  ipcMain.handle('ai-download', async event => {
+    trustedAi(event);
+    const parent = BrowserWindow.fromWebContents(event.sender);
+    if (!parent) throw new Error('Window unavailable');
+    const choice = await dialog.showMessageBox(parent, {
+      type: 'question',
+      title: 'Скачать локальную модель?',
+      message: 'Qwen займёт около 2,5 ГБ на диске',
+      detail:
+        'Ollama скачает модель из интернета. Тема задания и файлы не отправляются. После загрузки генерация работает локально, без аккаунта и API-ключа',
+      buttons: ['Отмена', 'Скачать'],
+      defaultId: 0,
+      cancelId: 0,
+    });
+    return choice.response === 1
+      ? ai.download()
+      : {ready: false, message: 'Загрузка не начата'};
+  });
+  app.on('before-quit', () => ai.cancel());
   if (process.platform === 'darwin' && app.dock)
     app.dock.setIcon(path.join(root, 'assets/forma.png'));
   protocol.handle('forma', request => {
@@ -91,6 +144,16 @@ function createWindow() {
     minHeight: 650,
     icon: path.join(root, 'assets/forma.png'),
     title: 'formatted - подготовка к экзамену',
+    titleBarStyle: 'hidden',
+    ...(process.platform === 'darwin'
+      ? {trafficLightPosition: {x: 18, y: 19}}
+      : {
+          titleBarOverlay: {
+            color: '#ffffff',
+            symbolColor: '#22272b',
+            height: 54,
+          },
+        }),
     backgroundColor: '#f1f4f9',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -107,9 +170,11 @@ function createWindow() {
   return window;
 }
 
-if (require.main === module && !app.requestSingleInstanceLock()) {
-  app.quit();
-} else if (require.main === module) {
+function start() {
+  if (!app.requestSingleInstanceLock()) {
+    app.quit();
+    return;
+  }
   app.on('second-instance', () => {
     const window = BrowserWindow.getAllWindows()[0];
     if (window) {
@@ -173,4 +238,4 @@ if (require.main === module && !app.requestSingleInstanceLock()) {
     if (process.platform !== 'darwin') app.quit();
   });
 }
-export {setup, createWindow};
+export {setup, createWindow, start};

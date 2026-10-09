@@ -2094,6 +2094,51 @@ button:disabled,
   padding: 20px 24px;
   border-bottom: 1px solid var(--line);
 }
+.ai-panel {
+  margin-top: 24px;
+}
+.ai-panel > p,
+.ai-setup,
+.ai-draft p {
+  max-width: 900px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.ai-panel .small-note {
+  margin-block: 16px;
+}
+#ai-form {
+  display: grid;
+  gap: 16px;
+  max-width: 720px;
+}
+.ai-status {
+  color: var(--muted);
+  margin-block: 16px;
+}
+.ai-setup summary,
+.ai-draft summary {
+  cursor: pointer;
+  color: var(--accent-strong);
+}
+.ai-setup ol {
+  padding-left: 20px;
+}
+.ai-setup li {
+  margin-block: 8px;
+}
+.ai-draft {
+  margin-top: 24px;
+  padding: 20px;
+  background: var(--soft);
+  border-radius: 12px;
+}
+.ai-draft h3 {
+  margin-top: 12px;
+}
+.ai-import {
+  margin-top: 20px;
+}
 .source-switcher [aria-pressed='true'] {
   color: var(--accent-strong);
   background: var(--accent-soft);
