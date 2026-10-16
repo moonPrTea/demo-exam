@@ -63,9 +63,13 @@ The exercise format remains 3 CSVs and 12 tables; it does not copy the number of
 
 Strict TypeScript, Electron and [Google gts](https://github.com/google/gts); 2-space indentation, single quotes, semicolons, brief comments.
 
+The independent [spreadsheet engine](./src/spreadsheet/README.md) supports local INDEX/MATCH calculations, cell references, copying and dependency recalculation without LibreOffice or a backend. It is an initial tested subset, not yet connected to the editor; the existing Calc walkthrough still requires LibreOffice.
+
 | Command                | Purpose                                         |
 | ---------------------- | ----------------------------------------------- |
 | `npm run check`        | Types, lint and logic tests                     |
+| `npm run test:engine`  | Spreadsheet engine tests                        |
+| `npm run bench:engine` | Local spreadsheet benchmark                     |
 | `npm run test:desktop` | Isolated desktop workflow tests                 |
 | `npm run preview`      | Browser preview; local AI is desktop-only       |
 | `npm run fix`          | Code style fixes                                |
