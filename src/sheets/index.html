@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <title>Учебная книга - formatted Sheets</title>
+    <link rel="stylesheet" href="sheets.css" />
+    <script type="module" src="editor.js"></script>
+  </head>
+  <body>
+    <header>
+      <img src="../assets/forma.svg" width="20" height="20" alt="" />
+      <strong id="title"></strong>
+      <button id="undo" data-label="undo" disabled></button>
+      <details id="options">
+        <summary data-label="options"></summary>
+        <div class="options">
+          <span data-label="language"></span>
+          <button data-language="ru" lang="ru">Русский</button>
+          <button data-language="en" lang="en">English</button>
+        </div>
+      </details>
+    </header>
+    <div class="toolbar">
+      <span id="scope" data-label="scope"></span>
+    </div>
+    <form id="formula-bar" autocomplete="off">
+      <input
+        id="address"
+        aria-label="Адрес ячейки"
+        maxlength="4"
+        spellcheck="false"
+      />
+      <label for="formula">ƒx</label>
+      <input
+        id="formula"
+        aria-label="Строка формул"
+        maxlength="32767"
+        spellcheck="false"
+      />
+      <button type="submit" data-label="apply"></button>
+      <button type="button" id="cancel" data-label="cancel"></button>
+    </form>
+    <div id="grid-scroll">
+      <table id="grid" role="grid" aria-label="Таблица"></table>
+    </div>
+    <nav id="sheets" aria-label="Листы"></nav>
+    <footer>
+      <span id="selection"></span
+      ><output id="status" aria-live="polite"></output>
+    </footer>
+  </body>
+</html>

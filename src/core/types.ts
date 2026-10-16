@@ -148,6 +148,7 @@ export type ExportResult =
   {canceled: true} | {directory: string; count: number; canceled?: false};
 
 export interface DesktopApi {
+  openSheets(): Promise<void>;
   openSetupPage(tool: 'calc' | 'python' | 'ollama'): Promise<void>;
   platform: string;
   calcStatus(): Promise<CalcResult>;

@@ -1,6 +1,7 @@
 import type {DesktopApi} from '../src/core/types.js';
 import {contextBridge, ipcRenderer} from 'electron';
 const desktop: DesktopApi = {
+  openSheets: () => ipcRenderer.invoke('open-sheets'),
   openSetupPage: tool => ipcRenderer.invoke('setup-page', tool),
   platform: process.platform,
   calcStatus: () => ipcRenderer.invoke('calc-status'),

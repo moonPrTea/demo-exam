@@ -1,6 +1,6 @@
 # Spreadsheet engine
 
-Headless TypeScript module for the exam's INDEX/MATCH exercises. No runtime dependencies, backend, Python or LibreOffice required. Import from `index.ts` (compiled JavaScript uses `index.js`). It is not yet connected to the editor or Calc lesson.
+Headless TypeScript module for the exam's INDEX/MATCH exercises. No runtime dependencies, backend, Python or LibreOffice required. Import from `index.ts` (compiled JavaScript uses `index.js`). The separate editor in `src/sheets/` uses it; the original native Calc lesson remains independent.
 
 ```ts
 import {Workbook, isCellError} from './spreadsheet/index.js';

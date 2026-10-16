@@ -5,6 +5,8 @@ for (const name of ['styles.css', 'theme.css', 'workspace.css', 'assets']) {
   await cp(`src/${name}`, `build/src/${name}`, {recursive: true});
 }
 await cp('desktop-tools', 'build/desktop-tools', {recursive: true});
+for (const name of ['index.html', 'sheets.css'])
+  await cp(`src/sheets/${name}`, `build/src/sheets/${name}`);
 await writeFile(
   'build/desktop-tools/calc-lesson.json',
   JSON.stringify(calcLesson),

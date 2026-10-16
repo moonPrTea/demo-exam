@@ -409,6 +409,12 @@ function lessonView() {
       </section>
     </div>
     <section class="panel calc-launch">
+      <h2>Собственный редактор таблиц</h2>
+      <p>
+        Отдельное окно без LibreOffice, учебный пример с ИНДЕКС и ПОИСКПОЗ. Пока
+        без сохранения файлов
+      </p>
+      ${window.desktop ? button('open-sheets', 'Открыть редактор таблиц', 'secondary') : '<p>Редактор запускается из desktop-приложения</p>'}
       <h2>Выполнить самостоятельно</h2>
       <p>
         Одна рабочая книга на все шаги. Импортируй source.csv и скопируй данные
@@ -1580,6 +1586,14 @@ document.addEventListener('click', async event => {
         if (active()) return;
         lessonAnswer = Number(target.dataset.answer);
         break;
+      case 'open-sheets':
+        if (!window.desktop || active()) return;
+        try {
+          await window.desktop.openSheets();
+        } catch (error) {
+          toast(errorMessage(error));
+        }
+        return;
       case 'check-calc':
       case 'open-calc':
       case 'calc-work':
