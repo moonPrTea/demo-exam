@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <title>Мастер функций</title>
+    <link rel="stylesheet" href="sheets.css" />
+    <link rel="stylesheet" href="wizard.css" />
+    <script type="module" src="wizard.js"></script>
+  </head>
+  <body>
+    <main inert>
+      <h1 id="heading">Мастер функций</h1>
+      <p id="target"></p>
+      <label id="search-label" for="search">Поиск функции</label>
+      <input id="search" type="search" autocomplete="off" />
+      <div id="functions" aria-labelledby="search-label"></div>
+      <p id="description"></p>
+      <div id="arguments"></div>
+      <p id="help"></p>
+      <label id="formula-label" for="expression">Формула</label>
+      <textarea
+        id="expression"
+        rows="2"
+        maxlength="4096"
+        spellcheck="false"
+      ></textarea>
+      <output id="result" aria-live="polite"></output>
+    </main>
+    <footer>
+      <button id="cancel">Отмена</button>
+      <button id="insert" disabled>Вставить</button>
+    </footer>
+  </body>
+</html>

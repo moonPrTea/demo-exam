@@ -22,7 +22,32 @@ export function openSheets() {
     },
   });
   editor = window;
-  window.webContents.setWindowOpenHandler(() => ({action: 'deny'}));
+  window.webContents.setWindowOpenHandler(({url: target}) =>
+    target === 'forma://app/sheets/wizard.html'
+      ? {
+          action: 'allow',
+          overrideBrowserWindowOptions: {
+            parent: window,
+            modal: true,
+            width: 700,
+            height: 680,
+            minWidth: 360,
+            minHeight: 400,
+            webPreferences: {
+              sandbox: true,
+              contextIsolation: true,
+              nodeIntegration: false,
+            },
+          },
+        }
+      : {action: 'deny'},
+  );
+  window.webContents.on('did-create-window', child => {
+    child.webContents.setWindowOpenHandler(() => ({action: 'deny'}));
+    child.webContents.on('will-navigate', (event, target) => {
+      if (target !== 'forma://app/sheets/wizard.html') event.preventDefault();
+    });
+  });
   window.webContents.on('will-navigate', (event, target) => {
     if (target !== url) event.preventDefault();
   });

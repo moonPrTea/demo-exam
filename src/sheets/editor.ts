@@ -1,6 +1,7 @@
 import {query} from '../dom.js';
 import {isCellError} from '../spreadsheet/index.js';
 import {SheetSession, sheetNames} from './session.js';
+import {functionDialog} from './function-dialog.js';
 
 import {words} from './labels.js';
 let language: keyof typeof words = 'ru';
@@ -15,6 +16,15 @@ const address = query<HTMLInputElement>('#address');
 const grid = query<HTMLTableElement>('#grid');
 const options = query<HTMLDetailsElement>('#options');
 const cells = new Map<string, HTMLTableCellElement>();
+query('#function-wizard').onclick = functionDialog(
+  book,
+  () => ({language, sheet, address: selected, formula: formula.value}),
+  value => {
+    formula.value = value;
+    draft = true;
+    return commit();
+  },
+);
 const head = grid.createTHead().insertRow();
 for (let col = 0; col <= 12; col++) {
   const cell = document.createElement('th');
@@ -148,6 +158,21 @@ grid.addEventListener('keydown', event => {
 formula.addEventListener('input', () => {
   draft = true;
 });
+grid.addEventListener('paste', event => {
+  const value = event.clipboardData?.getData('text/plain') ?? '';
+  event.preventDefault();
+  if (/[\t\r\n]/.test(value)) status(words[language].paste);
+  else {
+    edit(value);
+    commit();
+  }
+});
+formula.addEventListener('keydown', event => {
+  if (event.key === 'Enter' && !event.isComposing) {
+    event.preventDefault();
+    if (commit()) cells.get(selected)!.focus({preventScroll: true});
+  }
+});
 formula.addEventListener('paste', event => {
   if (/[\t\r\n]/.test(event.clipboardData?.getData('text/plain') ?? '')) {
     event.preventDefault();
@@ -185,6 +210,8 @@ function translate() {
   });
   for (const id of ['address', 'formula', 'grid', 'sheets'] as const)
     query('#' + id).setAttribute('aria-label', words[language][id]);
+  query('#function-wizard').setAttribute('aria-label', words[language].wizard);
+  query('#function-wizard').title = words[language].wizard;
   document
     .querySelectorAll<HTMLButtonElement>('[data-language]')
     .forEach(button =>

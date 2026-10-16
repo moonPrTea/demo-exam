@@ -24,7 +24,7 @@
     "pretest:engine": "npm run build",
     "test:engine": "node --test tests/spreadsheet.test.js",
     "pretest:sheets": "npm run build",
-    "test:sheets": "electron tests/sheets-desktop.cjs",
+    "test:sheets": "electron tests/sheets-desktop.cjs && electron tests/wizard-desktop.cjs",
     "prebench:engine": "npm run build",
     "bench:engine": "node build/scripts/benchmark-spreadsheet.js",
     "pretest:desktop": "npm run build",

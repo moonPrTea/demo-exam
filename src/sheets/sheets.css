@@ -131,7 +131,7 @@ input {
   flex: 1;
   font-family: ui-monospace, monospace;
 }
-#formula-bar label {
+#formula-bar #function-wizard {
   font:
     italic 18px Georgia,
     serif;
@@ -247,7 +247,7 @@ footer {
   }
   #formula-bar {
     display: grid;
-    grid-template-columns: 68px 24px minmax(0, 1fr);
+    grid-template-columns: 68px 32px minmax(0, 1fr);
   }
   #formula-bar button[type='submit'] {
     grid-column: 3;

@@ -1,0 +1,86 @@
+body {
+  min-width: 280px;
+}
+main {
+  overflow: auto;
+  flex: 1;
+  padding: 20px;
+}
+h1 {
+  font-size: 18px;
+  margin: 0 0 6px;
+  font-weight: 500;
+}
+p {
+  margin: 8px 0 14px;
+  color: #60686e;
+}
+label {
+  display: block;
+  margin: 12px 0 5px;
+}
+input,
+textarea {
+  width: 100%;
+}
+textarea {
+  font:
+    13px/1.5 ui-monospace,
+    monospace;
+  resize: vertical;
+  padding: 8px;
+  border: 1px solid #cbd1d5;
+  border-radius: 3px;
+}
+#functions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+#functions button {
+  border: 1px solid #cbd1d5;
+}
+#functions [aria-pressed='true'] {
+  background: #e6e9eb;
+  border-color: #526c7c;
+}
+#arguments {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 16px;
+}
+#arguments label:first-child {
+  grid-column: 1 / -1;
+}
+#arguments input {
+  display: block;
+  margin-top: 5px;
+}
+#help {
+  font-size: 12px;
+}
+#result {
+  display: block;
+  margin-top: 12px;
+  overflow-wrap: anywhere;
+}
+#result[data-error='true'] {
+  color: #a12424;
+}
+footer {
+  justify-content: flex-end;
+  border-top: 1px solid #d8dcdf;
+  padding: 10px 16px;
+}
+#insert {
+  background: #e6e9eb;
+}
+@media (max-width: 400px) {
+  main {
+    padding: 12px;
+  }
+  #arguments {
+    grid-template-columns: 1fr;
+  }
+}

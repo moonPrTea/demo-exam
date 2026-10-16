@@ -282,7 +282,8 @@ async function run() {
     parent.webContents.once('did-finish-load', resolve),
   );
   await parent.webContents.executeJavaScript('window.desktop.openSheets()');
-  assert.equal(BrowserWindow.getAllWindows().length, 2);
+  assert.equal(BrowserWindow.getAllWindows().length, 2,
+    JSON.stringify(BrowserWindow.getAllWindows().map(w => w.webContents.getURL())));
   pass('Launch from application bridge reuses editor');
 
   let prompts = 0;
