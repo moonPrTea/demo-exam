@@ -16,6 +16,25 @@ test('sheet session: example is independent and preserves raw source', () => {
   assert.equal(new SheetSession().book.getValue('Практика', 'H2'), 40);
 });
 
+test('sheet session: blank documents and new sheets are independent', () => {
+  const session = new SheetSession('Лист1');
+  assert.deepEqual(session.book.getSheetNames(), ['Лист1']);
+  assert.equal(session.book.getValue('Лист1', 'A1'), null);
+  assert.equal(session.dirty, false);
+  session.write('Лист1', 'A1', '17');
+  assert.equal(session.addSheet('ru'), 'Лист2');
+  assert.equal(session.addSheet('en'), 'Sheet1');
+  session.book.addSheet('sHeEt2');
+  assert.equal(session.addSheet('en'), 'Sheet3');
+  assert.equal(session.book.getValue('Лист1', 'A1'), 17);
+  assert.equal(session.book.getValue('Лист2', 'A1'), null);
+  assert.equal(new SheetSession('Лист1').book.getValue('Лист1', 'A1'), null);
+  assert.equal(session.dirty, true);
+  while (session.book.getSheetNames().length < 128) session.addSheet('ru');
+  assert.throws(() => session.addSheet('ru'));
+  assert.equal(session.book.getSheetNames().length, 128);
+});
+
 test('sheet session: input types are explicit and precision is guarded', () => {
   for (const [text, expected] of [
     ['00101', '00101'],

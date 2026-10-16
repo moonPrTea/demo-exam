@@ -1,16 +1,30 @@
 import {query} from '../dom.js';
 import {isCellError} from '../spreadsheet/index.js';
-import {SheetSession, sheetNames} from './session.js';
+import {SheetSession} from './session.js';
 import {functionDialog} from './function-dialog.js';
 import {createRangePicker} from './range-picker.js';
 import {type WizardContext} from './wizard-model.js';
 
 import {words} from './labels.js';
-let language: keyof typeof words = 'ru';
-const session = new SheetSession();
+declare global {
+  interface Window {
+    sheetDesktop?: {
+      menu: (language: string) => void;
+      newDocument: (language: string) => void;
+      onCommand: (callback: (command: string) => void) => void;
+    };
+  }
+}
+const parameters = new URLSearchParams(location.search);
+const blank = parameters.get('blank') === '1';
+let language: keyof typeof words =
+  parameters.get('language') === 'en' ? 'en' : 'ru';
+const session = new SheetSession(
+  blank ? (language === 'ru' ? 'Лист1' : 'Sheet1') : undefined,
+);
 const book = session.book;
-let sheet = 'Практика';
-let selected = 'H2';
+let sheet = blank ? book.getSheetNames()[0] : 'Практика';
+let selected = blank ? 'A1' : 'H2';
 const selections = new Map<string, string>();
 let draft = false;
 const formula = query<HTMLInputElement>('#formula');
@@ -85,9 +99,11 @@ function render() {
   draft = false;
   query('#selection').textContent = `${sheet}, ${selected}`;
   query<HTMLButtonElement>('#undo').disabled = !session.canUndo;
-  document.title = `${session.dirty ? '* ' : ''}${words[language].title} - formatted Sheets`;
-  query('#title').textContent =
-    `${session.dirty ? '* ' : ''}${words[language].title}`;
+  const title = blank
+    ? `${words[language].newDocument} ${parameters.get('document') || '1'}`
+    : words[language].title;
+  document.title = `${session.dirty ? '* ' : ''}${title} - formatted Sheets`;
+  query('#title').textContent = `${session.dirty ? '* ' : ''}${title}`;
   document
     .querySelectorAll<HTMLButtonElement>('[data-sheet]')
     .forEach(button =>
@@ -128,7 +144,7 @@ function edit(replacement?: string) {
     draft = true;
   } else formula.select();
 }
-for (const name of sheetNames) {
+function addTab(name: string) {
   const button = document.createElement('button');
   button.textContent = name;
   button.dataset.sheet = name;
@@ -148,6 +164,40 @@ for (const name of sheetNames) {
   };
   query('#sheets').append(button);
 }
+for (const name of book.getSheetNames()) addTab(name);
+query('#sheets').addEventListener('contextmenu', event => {
+  if (!(event.target as Element).closest('[data-sheet]')) return;
+  event.preventDefault();
+  if (!rangePicker.active && !document.body.inert)
+    window.sheetDesktop?.menu(language);
+});
+window.sheetDesktop?.onCommand(command => {
+  if (command === 'new-document') {
+    window.sheetDesktop?.newDocument(language);
+    return;
+  }
+  if (
+    command !== 'add-sheet' ||
+    rangePicker.active ||
+    document.body.inert ||
+    !commit()
+  )
+    return;
+  try {
+    const name = session.addSheet(language);
+    selections.set(sheet, selected);
+    addTab(name);
+    sheet = name;
+    select('A1');
+    query('#sheets').lastElementChild?.scrollIntoView({
+      block: 'nearest',
+      inline: 'nearest',
+      container: 'nearest',
+    } as ScrollIntoViewOptions);
+  } catch (error) {
+    status(String(error));
+  }
+});
 grid.addEventListener('click', event => {
   const cell = (event.target as Element).closest<HTMLElement>('[data-cell]');
   if (cell) select(cell.dataset.cell!);

@@ -206,10 +206,13 @@ td.range-cell {
 }
 nav {
   display: flex;
+  overflow-x: auto;
   padding: 0 8px;
   border-top: 1px solid #cbd1d5;
 }
 nav button {
+  flex-shrink: 0;
+  white-space: nowrap;
   border-radius: 0;
   padding: 7px 16px;
 }

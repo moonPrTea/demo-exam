@@ -30,7 +30,11 @@ export class SheetSession {
   private history: CellChange[] = [];
   dirty = false;
 
-  constructor() {
+  constructor(blankSheet?: string) {
+    if (blankSheet) {
+      this.book.addSheet(blankSheet);
+      return;
+    }
     const fill = (sheet: string, rows: (string | number)[][]) =>
       rows.forEach((row, r) =>
         row.forEach((value, c) =>
@@ -66,6 +70,19 @@ export class SheetSession {
 
   get canUndo() {
     return this.history.length > 0;
+  }
+
+  addSheet(language: FormulaLanguage): string {
+    const names = new Set(
+      this.book.getSheetNames().map(name => name.toLowerCase()),
+    );
+    const prefix = language === 'ru' ? 'Лист' : 'Sheet';
+    let number = 1;
+    while (names.has((prefix + number).toLowerCase())) number++;
+    const name = prefix + number;
+    this.book.addSheet(name);
+    this.dirty = true;
+    return name;
   }
 
   source(sheet: string, address: string, language: FormulaLanguage): string {

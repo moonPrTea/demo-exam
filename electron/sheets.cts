@@ -1,14 +1,49 @@
-import {BrowserWindow, dialog, ipcMain, type Rectangle} from 'electron';
+import {
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  Menu,
+  type Rectangle,
+  type WebContents,
+  type IpcMainEvent,
+} from 'electron';
 import path from 'node:path';
 
 let editor: BrowserWindow | null = null;
+const editors = new Set<BrowserWindow>();
+let documentNumber = 0;
+function trustedEditor(event: IpcMainEvent, language: unknown) {
+  const window = BrowserWindow.fromWebContents(event.sender);
+  return window &&
+    editors.has(window) &&
+    event.senderFrame === event.sender.mainFrame &&
+    (language === 'ru' || language === 'en')
+    ? window
+    : null;
+}
+ipcMain.on('sheet-new-document', (event, language: unknown) => {
+  if (trustedEditor(event, language)) createEditor(true, language as string);
+});
+ipcMain.on('sheet-menu', (event, language: unknown) => {
+  const window = trustedEditor(event, language);
+  if (!window) return;
+  Menu.buildFromTemplate([
+    {
+      label: language === 'ru' ? 'Создать новый лист' : 'New sheet',
+      click: () => {
+        if (!window.isDestroyed())
+          window.webContents.send('sheet-command', 'add-sheet');
+      },
+    },
+  ]).popup({window});
+});
 const expanded = new WeakMap<BrowserWindow, Rectangle>();
 ipcMain.on('sheet-range-picking', (event, active: unknown) => {
   const child = BrowserWindow.fromWebContents(event.sender);
   if (
     typeof active !== 'boolean' ||
     !child ||
-    child.getParentWindow() !== editor ||
+    !editors.has(child.getParentWindow()!) ||
     event.senderFrame !== event.sender.mainFrame ||
     event.senderFrame.url !== 'forma://app/sheets/wizard.html'
   )
@@ -19,7 +54,7 @@ ipcMain.on('sheet-range-picking', (event, active: unknown) => {
     const zoom = child.webContents.getZoomFactor();
     child.setContentSize(Math.round(420 * zoom), Math.round(90 * zoom));
     child.setAlwaysOnTop(true);
-    editor?.focus();
+    child.getParentWindow()?.focus();
   } else if (!active && expanded.has(child)) {
     child.setMinimumSize(360, 400);
     child.setBounds(expanded.get(child)!);
@@ -35,7 +70,12 @@ export function openSheets() {
     editor.focus();
     return;
   }
-  const url = 'forma://app/sheets/index.html';
+  createEditor();
+}
+function createEditor(blank = false, language = 'ru') {
+  const url =
+    'forma://app/sheets/index.html' +
+    (blank ? `?blank=1&language=${language}&document=${++documentNumber}` : '');
   const window = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -43,12 +83,32 @@ export function openSheets() {
     minHeight: 480,
     backgroundColor: '#ffffff',
     webPreferences: {
+      preload: path.join(__dirname, 'sheets-preload.cjs'),
       sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,
     },
   });
   editor = window;
+  editors.add(window);
+  window.on('focus', () => {
+    editor = window;
+  });
+  const shortcut = (contents: WebContents) =>
+    contents.on('before-input-event', (event, input) => {
+      if (
+        input.type === 'keyDown' &&
+        (input.meta || input.control) &&
+        !input.alt &&
+        !input.shift &&
+        (input.code === 'KeyN' || input.key.toLowerCase() === 'n')
+      ) {
+        event.preventDefault();
+        if (!input.isAutoRepeat)
+          window.webContents.send('sheet-command', 'new-document');
+      }
+    });
+  shortcut(window.webContents);
   window.webContents.setWindowOpenHandler(({url: target}) =>
     target === 'forma://app/sheets/wizard.html'
       ? {
@@ -71,6 +131,7 @@ export function openSheets() {
       : {action: 'deny'},
   );
   window.webContents.on('did-create-window', child => {
+    shortcut(child.webContents);
     child.webContents.setWindowOpenHandler(() => ({action: 'deny'}));
     child.webContents.on('will-navigate', (event, target) => {
       if (target !== 'forma://app/sheets/wizard.html') event.preventDefault();
@@ -92,7 +153,8 @@ export function openSheets() {
     if (response === 1) event.preventDefault();
   });
   window.on('closed', () => {
-    editor = null;
+    editors.delete(window);
+    if (editor === window) editor = [...editors].at(-1) ?? null;
   });
   void window.loadURL(url);
 }
