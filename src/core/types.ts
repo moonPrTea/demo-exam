@@ -148,9 +148,11 @@ export type ExportResult =
   {canceled: true} | {directory: string; count: number; canceled?: false};
 
 export interface DesktopApi {
+  openSetupPage(tool: 'calc' | 'python' | 'ollama'): Promise<void>;
   platform: string;
   calcStatus(): Promise<CalcResult>;
   openCalcLesson(step: number): Promise<CalcResult>;
+  calcWork(step: number, action: 'work' | 'check'): Promise<CalcResult>;
   downloadAiModel(): Promise<AiStatus>;
   aiStatus(): Promise<AiStatus>;
   generateAiTheme(config: Config, topic: string): Promise<AiTheme>;
@@ -163,4 +165,6 @@ export interface CalcResult {
   message: string;
   directory?: string;
   file?: string;
+  passed?: boolean;
+  issues?: string[];
 }

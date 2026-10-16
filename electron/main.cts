@@ -7,6 +7,7 @@ import {
   dialog,
   session,
   Menu,
+  shell,
 } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs/promises';
@@ -41,6 +42,16 @@ async function setup() {
     )
       throw new Error('Untrusted request');
   };
+  ipcMain.handle('setup-page', (event, tool: string) => {
+    trustedAi(event);
+    const links: Record<string, string> = {
+      calc: 'https://www.libreoffice.org/download/download-libreoffice/',
+      python: 'https://www.python.org/downloads/',
+      ollama: 'https://ollama.com/download',
+    };
+    if (!Object.hasOwn(links, tool)) throw new Error('Unknown setup page');
+    return shell.openExternal(links[tool]);
+  });
   ipcMain.handle('ai-status', event => {
     trustedAi(event);
     return ai.status();
@@ -56,6 +67,19 @@ async function setup() {
       path.join(app.getPath('userData'), 'calc-lessons'),
     );
   });
+  ipcMain.handle(
+    'calc-work',
+    (event, step: number, action: 'work' | 'check') => {
+      trustedAi(event);
+      if (!['work', 'check'].includes(action))
+        throw new Error('Unknown lesson action');
+      return runCalcLesson(
+        step,
+        path.join(app.getPath('userData'), 'calc-lessons'),
+        action,
+      );
+    },
+  );
   ipcMain.handle('ai-generate', (event, config: ConfigInput, topic: string) => {
     trustedAi(event);
     return ai.generate(config, topic);

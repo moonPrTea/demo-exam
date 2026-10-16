@@ -9,7 +9,10 @@ const script = path.resolve(__dirname, '../desktop-tools/calc_lesson.py');
 export async function runCalcLesson(
   step?: number,
   directory?: string,
+  mode: 'example' | 'work' | 'check' = 'example',
 ): Promise<CalcResult> {
+  if (!['example', 'work', 'check'].includes(mode))
+    throw new Error('Неизвестный режим урока');
   if (step !== undefined && (!Number.isInteger(step) || step < 0 || step > 6))
     throw new Error('Неизвестный шаг урока');
   const candidates =
@@ -37,7 +40,15 @@ export async function runCalcLesson(
     const args =
       step === undefined
         ? ['--status']
-        : ['--step', String(step), '--output', directory!];
+        : [
+            '--step',
+            String(step),
+            '--output',
+            directory!,
+            ...(mode === 'example'
+              ? []
+              : [mode === 'work' ? '--work' : '--check']),
+          ];
     try {
       const result = await execute(command, [...prefix, script, ...args], {
         timeout: 15_000,

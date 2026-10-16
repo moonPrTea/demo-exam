@@ -181,20 +181,33 @@ def main():
     parser.add_argument('--step', type=int, choices=range(7))
     parser.add_argument('--output', type=Path)
     parser.add_argument('--prepare-only', action='store_true')
+    parser.add_argument('--work', action='store_true')
+    parser.add_argument('--check', action='store_true')
     args = parser.parse_args()
     calc = find_calc()
     if args.status:
         result = {'ready': bool(calc), 'message': 'Python и LibreOffice Calc доступны' if calc else 'LibreOffice Calc не найден. Установи его с libreoffice.org; урок внутри приложения доступен без него'}
     elif args.step is None or args.output is None:
         parser.error('Нужны --step и --output')
+    elif args.check:
+        from calc_work import check_work
+        folder = args.output.resolve() / 'work'
+        target = next((folder / name for name in ['lesson.ods', 'lesson.fods'] if (folder / name).is_file()), None)
+        result = check_work(target, load_lesson(), args.step) if target else {'ready': False, 'message': 'Сначала открой рабочую книгу и сохрани свою работу'}
     elif not calc and not args.prepare_only:
         result = {'ready': False, 'message': 'LibreOffice Calc не найден. Урок можно пройти внутри приложения'}
     else:
-        folder, target = prepare(args.output.resolve(), load_lesson(), args.step)
+        if args.work:
+            from calc_work import prepare_work
+            folder, target = prepare_work(args.output.resolve(), load_lesson())
+        else:
+            folder, target = prepare(args.output.resolve(), load_lesson(), args.step)
         if not args.prepare_only:
             profile = args.output.resolve() / 'calc-profile'
             subprocess.Popen([calc, '-env:UserInstallation=' + profile.as_uri(), '--norestore', '--calc', str(target)], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         result = {'ready': bool(calc), 'directory': str(folder), 'file': str(target), 'message': 'Учебная копия подготовлена' if args.prepare_only else 'Учебная копия передана Calc. Пояснение на листе «Подсказка», нужная ячейка выделена жёлтым. Изменения предыдущих шагов не переносятся'}
+        if args.work:
+            result['message'] = 'Открыта твоя рабочая книга. Изменения сохраняются между шагами. Перед проверкой нажми Ctrl+S в Calc'
     print(json.dumps(result, ensure_ascii=False))
 
 

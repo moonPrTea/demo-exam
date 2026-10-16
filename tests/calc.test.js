@@ -37,7 +37,17 @@ test('Python lesson generation and launch isolation', context => {
   const [command, ...args] = python;
   const output = execFileSync(
     command,
-    [...args, '-B', 'tests/calc_lesson_test.py'],
+    [
+      ...args,
+      '-B',
+      '-m',
+      'unittest',
+      'discover',
+      '-s',
+      'tests',
+      '-p',
+      'calc_*test.py',
+    ],
     {encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe']},
   );
   assert.equal(output, '');

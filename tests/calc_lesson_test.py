@@ -97,6 +97,10 @@ class CalcLessonTests(unittest.TestCase):
                 self.assertTrue(args[-1].endswith('lesson.fods'))
                 self.assertNotIn('shell', process.call_args.kwargs)
 
+    def test_windows_calc_path_with_spaces(self):
+        with patch.object(lesson_script.sys, 'platform', 'win32'), patch.dict(lesson_script.os.environ, {'PROGRAMFILES': 'C:/Program Files'}), patch.object(lesson_script.shutil, 'which', return_value=None), patch.object(Path, 'is_file', lambda path: str(path).endswith('LibreOffice/program/soffice.exe')), patch.object(Path, 'resolve', lambda path: path):
+            self.assertEqual(lesson_script.find_calc(), 'C:/Program Files/LibreOffice/program/soffice.exe')
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -28,6 +28,19 @@ async function run() {
   };
   await setup();
   const calcRequests = [];
+  const workRequests = [];
+  ipcMain.removeHandler('calc-work');
+  ipcMain.handle('calc-work', (_event, step, action) => {
+    workRequests.push([step, action]);
+    return {
+      ready: true,
+      passed: action === 'check',
+      message:
+        action === 'check'
+          ? 'Шаг проверен по сохранённой книге (тест)'
+          : 'Открыта твоя рабочая книга (тест)',
+    };
+  });
   ipcMain.removeHandler('calc-status');
   ipcMain.handle('calc-status', () => ({
     ready: false,
@@ -150,6 +163,22 @@ async function run() {
   })`);
   assert.deepEqual(calcRequests, [4]);
   assert.match(await text('.calc-status'), /Учебная копия передана/);
+  for (const action of ['calc-work', 'calc-check-work']) {
+    await click(`[data-action="${action}"]`);
+    await evaluate(`new Promise((resolve, reject) => {
+      const deadline = Date.now() + 3000;
+      const poll = () => {
+        if (!document.querySelector('[data-action="calc-work"]').disabled) return resolve();
+        if (Date.now() > deadline) return reject(new Error('Work check timed out'));
+        setTimeout(poll, 20);
+      }; poll();
+    })`);
+  }
+  assert.deepEqual(workRequests, [
+    [4, 'work'],
+    [4, 'check'],
+  ]);
+  assert.match(await text('.calc-status'), /Шаг проверен/);
   await click('[data-view="home"]');
 
   await click('[data-view="quiz"]');
@@ -229,6 +258,35 @@ async function run() {
     1,
   );
   await click('[data-view="generator"]');
+  await evaluate(`(async () => {
+    const {normalizationModel} = await import('./core/normalization-model.js');
+    const {generateDataset} = await import('./core/generator.js');
+    const {toCsv} = await import('./core/csv.js');
+    const data = generateDataset(JSON.parse(localStorage.getItem('forma.v1')).config);
+    const model = normalizationModel(data);
+    const transfer = new DataTransfer();
+    const schema = model.map(table => {
+      const primaryKey = table.name === 'lines' ? ['order_id', 'line_no'] : table.name === 'bookAuthors' ? ['book_code', 'author_code'] : [table.fields[0]];
+      transfer.items.add(new File([toCsv(table.fields, table.rows)], table.name + '.csv', {type: 'text/csv'}));
+      return {entity: table.name, file: table.name + '.csv', primaryKey, columns: Object.fromEntries(table.fields.map(f => [f,f])), references: table.parents.map(name => ({table: name, columns: [table.name === 'cohorts' && name === 'users' ? 'teacher_code' : model.find(t => t.name === name).fields[0]]}))};
+    });
+    transfer.items.add(new File([JSON.stringify(schema)], 'schema.json', {type: 'application/json'}));
+    const form = document.querySelector('#normalization-form');
+    form.elements.namedItem('files').files = transfer.files;
+    form.requestSubmit();
+  })()`);
+  await evaluate(`new Promise((resolve, reject) => {
+    const deadline = Date.now() + 5000;
+    const poll = () => {
+      if (document.querySelector('.normalization-result').textContent.includes('Проверено 12 таблиц')) return resolve();
+      if (Date.now() > deadline) return reject(new Error(document.querySelector('.normalization-result').textContent));
+      setTimeout(poll, 20);
+    }; poll();
+  })`);
+  await evaluate(
+    "document.querySelector('.normalization-panel').scrollIntoView()",
+  );
+  await capture('normalization');
   await click('.number-field [data-step="1"]');
   assert.equal(
     await evaluate('document.querySelector("[name=size]").value'),
@@ -337,6 +395,12 @@ async function run() {
       'document.querySelector(".wordmark img").getAttribute("src")',
     ),
     'assets/forma.svg',
+  );
+  await evaluate(
+    'document.querySelector("[data-select-name=domain]").scrollIntoView({block:"center", behavior:"instant"})',
+  );
+  await evaluate(
+    'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
   );
   await click('[data-select-name="domain"]');
   assert.equal(
@@ -512,6 +576,10 @@ async function run() {
   await evaluate('document.querySelector("#practice-form").requestSubmit()');
   assert.match(await text('h1'), /Библиотека/);
   await capture('practice');
+  assert.equal(
+    await evaluate('document.querySelector("#normalization-form")'),
+    null,
+  );
   await evaluate(
     'const input = document.querySelector("[data-answer=filter]"); input.value = "123"; input.dispatchEvent(new Event("input", {bubbles:true})); document.querySelector("[data-check]").click()',
   );
@@ -627,12 +695,21 @@ async function run() {
     'document.querySelector("#ai-panel").scrollIntoView({behavior: "instant", block: "start"})',
   );
   await capture('ai-draft');
+  await evaluate(
+    `document.querySelector('#ai-draft-form [name=description]').value = 'Учебная мастерская проверяет учёт товаров. Описание исправлено пользователем'`,
+  );
   await click('[data-action="apply-ai"]');
+  assert.match(
+    await evaluate(
+      'JSON.parse(localStorage.getItem("forma.v1")).config.aiTheme.description',
+    ),
+    /исправлено пользователем/,
+  );
   assert.match(await text('.csv-preview'), /Учебная мастерская/);
   const aiConfig = await evaluate(
     'JSON.parse(localStorage.getItem("forma.v1")).config',
   );
-  assert.deepEqual(aiConfig.aiTheme, themeFixture(aiConfig.domain));
+  assert.deepEqual(aiConfig.aiTheme, {...themeFixture(aiConfig.domain), description: 'Учебная мастерская проверяет учёт товаров. Описание исправлено пользователем'});
   reload = new Promise(resolve =>
     window.webContents.once('did-finish-load', resolve),
   );

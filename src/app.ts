@@ -1,4 +1,9 @@
 import {query, errorMessage, html} from './dom.js';
+import {
+  normalizationView,
+  checkNormalizationForm,
+} from './normalization-view.js';
+import {environmentView} from './environment-view.js';
 import type {
   AppState,
   AiTheme,
@@ -21,7 +26,7 @@ import {
   sourceFiles,
 } from './core/generator.js';
 import {FORMULA_SCOPE} from './core/formula-questions.js';
-import {AI_MODEL} from './core/ai-theme.js';
+import {AI_MODEL, validateAiTheme} from './core/ai-theme.js';
 import {calcLesson} from './core/calc-lesson.js';
 import {toCsv} from './core/csv.js';
 import {questions, topics, makeQuiz} from './core/quiz.js';
@@ -404,6 +409,21 @@ function lessonView() {
       </section>
     </div>
     <section class="panel calc-launch">
+      <h2>Выполнить самостоятельно</h2>
+      <p>
+        Одна рабочая книга на все шаги. Импортируй source.csv и скопируй данные
+        на лист «Практика». Заполняй справочник и формулы сам, сохраняй книгу
+        перед проверкой
+      </p>
+      <div class="actions">
+        ${window.desktop ? button('calc-work', 'Открыть мою книгу', 'primary', calcBusy ? 'disabled' : '') + button('calc-check-work', 'Проверить этот шаг', 'secondary', calcBusy ? 'disabled' : '') : '<p>Рабочая книга и проверка доступны в desktop-приложении</p>'}
+      </div>
+      <p class="small-note">
+        Можно сохранить как lesson.ods в той же папке. Для последнего шага
+        сохрани рядом products.csv и categories.csv, UTF-8, разделитель ;.
+        Исходный лист не меняй, рабочий лист сохраняй для проверки. На шагах с
+        формулами проверяются ИНДЕКС и ПОИСКПОЗ с обычными ссылками на ячейки
+      </p>
       <h2>Посмотреть этот шаг в настоящем Calc</h2>
       <p>
         Python открывает учебную копию с выделенной ячейкой и листом
@@ -443,6 +463,7 @@ function heading(
 function home() {
   const s = stats();
   return html`${heading('ТВОЁ УЧЕБНОЕ ПРОСТРАНСТВО', 'От данных - к пониманию.', 'Новая предметная область. Та же уверенность в своих навыках.', html`<span class="date-chip">${new Intl.DateTimeFormat('ru', {day: 'numeric', month: 'long'}).format(new Date())}</span>`)}
+    ${environmentView()}
     <div class="stats-row">
       <div>
         <span class="stat-number"
@@ -816,7 +837,7 @@ function generator() {
         ${data.rules.map(rule => html`<li>${esc(rule)}</li>`).join('')}
       </ul>
     </section>
-    ${aiPanel()}`;
+    ${active() ? '' : normalizationView(data)} ${aiPanel()}`;
 }
 
 function aiPanel() {
@@ -880,18 +901,41 @@ function aiPanel() {
         ? html`<div class="ai-draft">
             <span class="pill subtle">Черновик, ещё не применён</span>
             <h3>${esc(aiDraft.title)}</h3>
-            <p>${esc(aiDraft.description)}</p>
-            <details>
-              <summary>Проверить тематические названия</summary>
-              ${Object.entries(aiDraft.values)
-                .map(
-                  ([field, values]) =>
-                    html`<p>
-                      <b>${esc(field)}</b>: ${values.map(esc).join(', ')}
-                    </p>`,
-                )
-                .join('')}
-            </details>
+            <form id="ai-draft-form">
+              <label
+                >Название<input
+                  name="title"
+                  maxlength="80"
+                  value="${esc(aiDraft.title)}"
+                  required
+              /></label>
+              <label
+                >Описание предметной области<textarea
+                  name="description"
+                  maxlength="1800"
+                  rows="5"
+                  required
+                >
+${esc(aiDraft.description)}</textarea>
+              </label>
+              <details>
+                <summary>Проверить и исправить тематические названия</summary>
+                ${Object.entries(aiDraft.values)
+                  .map(
+                    ([field, values]) =>
+                      html`<label
+                        >${esc(field)}: ${values.length} значений, по одному на
+                        строку<textarea
+                          data-vocabulary="${esc(field)}"
+                          rows="${Math.min(values.length, 5)}"
+                          required
+                        >
+${values.map(esc).join('\n')}</textarea>
+                      </label>`,
+                  )
+                  .join('')}
+              </details>
+            </form>
             <p class="small-note">
               Проверена структура ответа, не фактическая или смысловая точность
               текста. Применение заменит текущий вариант, сохранённые попытки не
@@ -1219,6 +1263,7 @@ function report(session: PracticeSession, data: Dataset) {
         )
         .join('')}
     </div>
+    ${normalizationView(data)}
     <section class="panel reflection">
       <h2>Объясни своё решение</h2>
       ${data.questions.map(q => html`<p>${esc(q)}</p>`).join('')}
@@ -1475,6 +1520,29 @@ document.addEventListener('click', async event => {
       return;
     }
     switch (target.dataset.action) {
+      case 'setup-page':
+        if (window.desktop && !active())
+          await window.desktop.openSetupPage(
+            target.dataset.tool as 'calc' | 'python' | 'ollama',
+          );
+        return;
+      case 'check-environment': {
+        if (!window.desktop) return;
+        target.disabled = true;
+        const output = query('.environment-status');
+        output.textContent = 'Проверяем Python, Calc и локальную модель';
+        const results = await Promise.allSettled([
+          window.desktop.calcStatus(),
+          window.desktop.aiStatus(),
+        ]);
+        output.textContent = results
+          .map(r =>
+            r.status === 'fulfilled' ? r.value.message : errorMessage(r.reason),
+          )
+          .join('\n');
+        target.disabled = false;
+        return;
+      }
       case 'toggle-sidebar':
         sidebarCollapsed = !sidebarCollapsed;
         render();
@@ -1514,17 +1582,26 @@ document.addEventListener('click', async event => {
         break;
       case 'check-calc':
       case 'open-calc':
+      case 'calc-work':
+      case 'calc-check-work':
         if (!window.desktop || active() || calcBusy) return;
         calcBusy = true;
         calcMessage = 'Проверяем доступные программы';
         render();
         try {
           const result =
-            target.dataset.action === 'open-calc'
-              ? await window.desktop.openCalcLesson(lessonStep)
-              : await window.desktop.calcStatus();
+            target.dataset.action === 'calc-work' ||
+            target.dataset.action === 'calc-check-work'
+              ? await window.desktop.calcWork(
+                  lessonStep,
+                  target.dataset.action === 'calc-work' ? 'work' : 'check',
+                )
+              : target.dataset.action === 'open-calc'
+                ? await window.desktop.openCalcLesson(lessonStep)
+                : await window.desktop.calcStatus();
           calcMessage =
             result.message +
+            (result.issues?.length ? '\n' + result.issues.join('\n') : '') +
             (result.directory ? `\nПапка примера: ${result.directory}` : '');
         } catch (error) {
           calcMessage = errorMessage(error);
@@ -1585,6 +1662,29 @@ document.addEventListener('click', async event => {
         return;
       case 'apply-ai':
         if (!aiDraft || !aiDraftConfig || active() || aiBusy) return;
+        {
+          const form = query<HTMLFormElement>('#ai-draft-form');
+          if (!form.reportValidity()) return;
+          const values = new FormData(form);
+          aiDraft = validateAiTheme(
+            {
+              ...aiDraft,
+              title: values.get('title'),
+              description: values.get('description'),
+              values: Object.fromEntries(
+                [
+                  ...form.querySelectorAll<HTMLTextAreaElement>(
+                    '[data-vocabulary]',
+                  ),
+                ].map(input => [
+                  input.dataset.vocabulary!,
+                  input.value.split(/\r?\n/),
+                ]),
+              ),
+            },
+            aiDraftConfig.domain,
+          );
+        }
         state.config = normalizeConfig({...aiDraftConfig, aiTheme: aiDraft});
         aiDraft = null;
         aiMessage = 'Тема применена и сохранена локально';
@@ -1832,6 +1932,14 @@ document.addEventListener('submit', event => {
       return;
     }
     const values = Object.fromEntries(new FormData(form));
+    if (form.id === 'normalization-form') {
+      const config =
+        state.view === 'practice' && state.session
+          ? state.session.config
+          : state.config;
+      void checkNormalizationForm(form, generateDataset(config));
+      return;
+    }
     if (form.id === 'ai-form') {
       aiTopic = String(values.topic ?? '');
       void proposeTheme();

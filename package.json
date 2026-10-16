@@ -7,6 +7,8 @@
   "type": "module",
   "main": "build/electron/start.cjs",
   "scripts": {
+    "predoctor": "npm run build",
+    "doctor": "node build/scripts/doctor.js",
     "build": "tsc && node build/scripts/copy-assets.js",
     "typecheck": "tsc --noEmit",
     "lint": "gts lint \"src/**/*.ts\" \"electron/**/*.cts\" \"scripts/**/*.{ts,cts}\" eslint.config.js",

@@ -274,3 +274,74 @@
     padding: 18px;
   }
 }
+.normalization-panel {
+  margin-top: 24px;
+}
+.normalization-panel form {
+  display: grid;
+  gap: 16px;
+  margin-top: 20px;
+}
+.normalization-panel label {
+  display: grid;
+  gap: 8px;
+}
+.normalization-panel pre {
+  overflow-x: auto;
+  padding: 16px;
+  background: #f1f4f9;
+  border-radius: 12px;
+}
+.normalization-panel li {
+  margin: 8px 0;
+}
+.environment-panel {
+  margin-bottom: 24px;
+}
+.environment-status {
+  white-space: pre-line;
+}
+.normalization-result:not(:empty) {
+  margin-top: 16px;
+  padding: 16px;
+  border-radius: 12px;
+  background: #f1f4f9;
+}
+.normalization-panel h2,
+.environment-panel h2 {
+  margin-bottom: 12px;
+}
+.normalization-panel p,
+.environment-panel p {
+  margin: 12px 0;
+}
+.normalization-panel input::file-selector-button {
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-right: 12px;
+  background: #eaf3ff;
+  color: #005ce6;
+  font: inherit;
+  cursor: pointer;
+}
+#ai-draft-form {
+  display: grid;
+  gap: 16px;
+}
+#ai-draft-form label {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+}
+#ai-draft-form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px;
+  border: 1px solid #dce3eb;
+  border-radius: 10px;
+  background: #fff;
+  color: #22272b;
+  font: inherit;
+  resize: vertical;
+}

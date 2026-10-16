@@ -51,7 +51,14 @@ function highlight(control: SelectControl, index: number) {
     'aria-activedescendant',
     control.items[control.index].id,
   );
-  control.items[control.index].scrollIntoView({block: 'nearest'});
+  const item = control.items[control.index];
+  const {menu} = control;
+  if (item.offsetTop < menu.scrollTop) menu.scrollTop = item.offsetTop;
+  else if (
+    item.offsetTop + item.offsetHeight >
+    menu.scrollTop + menu.clientHeight
+  )
+    menu.scrollTop = item.offsetTop + item.offsetHeight - menu.clientHeight;
 }
 
 function choose(control: SelectControl, index: number) {
