@@ -46,6 +46,10 @@ async function run() {
   assert.equal(await value('I2'), '3');
   console.log('2. Paste event on the selected cell calculates a formula');
   let wizard;
+  const closed = async () => {
+    await wait(() => wizard.isDestroyed());
+    await wait(() => evaluate(editor, '!document.body.inert'));
+  };
   const open = async () => {
     await click(editor, '#function-wizard');
     await wait(() => BrowserWindow.getAllWindows().some(w => w !== editor));
@@ -55,10 +59,11 @@ async function run() {
   };
   await open();
   assert.equal(wizard.getParentWindow(), editor);
-  assert.equal(wizard.isModal(), true);
+  assert.equal(wizard.isModal(), false);
+  assert.equal(await evaluate(editor, 'document.body.inert'), true);
   assert.equal(await evaluate(wizard, 'typeof require'), 'undefined');
   assert.match(await evaluate(wizard, 'document.querySelector("#result").textContent'), /3$/);
-  console.log('3. Separate sandboxed modal initializes from the selected formula');
+  console.log('3. Sandboxed wizard initializes and locks the editor outside range selection');
   for (const query of ['index', 'индекс']) {
     await input(wizard, '#search', query);
     assert.equal(await evaluate(wizard, 'document.querySelectorAll("[data-function]").length'), 1);
@@ -76,7 +81,7 @@ async function run() {
   assert.equal(await value('I2'), '3');
   console.log('5. Argument preview is isolated from the workbook');
   await click(wizard, '#insert');
-  await wait(() => wizard.isDestroyed());
+  await closed();
   assert.equal(await value('I2'), '40');
   await click(editor, '#undo');
   assert.equal(await value('I2'), '3');
@@ -85,7 +90,7 @@ async function run() {
   await open();
   await input(wizard, '#expression', '=99');
   await key(wizard, 'Escape');
-  await wait(() => wizard.isDestroyed());
+  await closed();
   assert.equal(await evaluate(editor, 'document.querySelector("#formula").value'), '=7+8');
   assert.equal(await value('I2'), '3');
   console.log('7. Escape leaves the uncommitted formula intact');
@@ -112,7 +117,7 @@ async function run() {
   await fs.writeFile(path.join(dir, 'wizard-zoom.png'), (await wizard.webContents.capturePage()).toPNG());
   console.log('9. Window sizes and 200% zoom keep actions accessible');
   await click(wizard, '#cancel');
-  await wait(() => wizard.isDestroyed());
+  await closed();
   await click(editor, '#cancel');
   await click(editor, '[data-language="en"]');
   await open();
@@ -120,7 +125,7 @@ async function run() {
   assert.match(await evaluate(wizard, 'document.querySelector("#expression").value'), /MATCH/);
   await input(wizard, '#expression', '=INDEX(Категории.A2:A4;3)');
   await click(wizard, '#insert');
-  await wait(() => wizard.isDestroyed());
+  await closed();
   assert.equal(await value('I2'), '40');
   console.log('10. English interface and function names');
   await evaluate(editor, 'window.open("https://example.com")');

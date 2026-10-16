@@ -1,6 +1,33 @@
-import {BrowserWindow, dialog} from 'electron';
+import {BrowserWindow, dialog, ipcMain, type Rectangle} from 'electron';
+import path from 'node:path';
 
 let editor: BrowserWindow | null = null;
+const expanded = new WeakMap<BrowserWindow, Rectangle>();
+ipcMain.on('sheet-range-picking', (event, active: unknown) => {
+  const child = BrowserWindow.fromWebContents(event.sender);
+  if (
+    typeof active !== 'boolean' ||
+    !child ||
+    child.getParentWindow() !== editor ||
+    event.senderFrame !== event.sender.mainFrame ||
+    event.senderFrame.url !== 'forma://app/sheets/wizard.html'
+  )
+    return;
+  if (active && !expanded.has(child)) {
+    expanded.set(child, child.getBounds());
+    child.setMinimumSize(360, 96);
+    const zoom = child.webContents.getZoomFactor();
+    child.setContentSize(Math.round(420 * zoom), Math.round(90 * zoom));
+    child.setAlwaysOnTop(true);
+    editor?.focus();
+  } else if (!active && expanded.has(child)) {
+    child.setMinimumSize(360, 400);
+    child.setBounds(expanded.get(child)!);
+    expanded.delete(child);
+    child.setAlwaysOnTop(false);
+    child.focus();
+  }
+});
 export function openSheets() {
   if (editor) {
     if (editor.isMinimized()) editor.restore();
@@ -28,12 +55,13 @@ export function openSheets() {
           action: 'allow',
           overrideBrowserWindowOptions: {
             parent: window,
-            modal: true,
+            modal: false,
             width: 700,
             height: 680,
             minWidth: 360,
             minHeight: 400,
             webPreferences: {
+              preload: path.join(__dirname, 'wizard-preload.cjs'),
               sandbox: true,
               contextIsolation: true,
               nodeIntegration: false,

@@ -2,6 +2,8 @@ import {query} from '../dom.js';
 import {isCellError} from '../spreadsheet/index.js';
 import {SheetSession, sheetNames} from './session.js';
 import {functionDialog} from './function-dialog.js';
+import {createRangePicker} from './range-picker.js';
+import {type WizardContext} from './wizard-model.js';
 
 import {words} from './labels.js';
 let language: keyof typeof words = 'ru';
@@ -16,14 +18,25 @@ const address = query<HTMLInputElement>('#address');
 const grid = query<HTMLTableElement>('#grid');
 const options = query<HTMLDetailsElement>('#options');
 const cells = new Map<string, HTMLTableCellElement>();
+const rangePicker = createRangePicker(grid, () => sheet);
+function restoreCell(original: WizardContext) {
+  sheet = original.sheet;
+  selected = original.address;
+  render();
+  formula.value = original.formula;
+  draft = formula.value !== session.source(sheet, selected, language);
+}
 query('#function-wizard').onclick = functionDialog(
   book,
   () => ({language, sheet, address: selected, formula: formula.value}),
-  value => {
+  (value, original) => {
+    restoreCell(original);
     formula.value = value;
     draft = true;
     return commit();
   },
+  restoreCell,
+  done => rangePicker.start(done),
 );
 const head = grid.createTHead().insertRow();
 for (let col = 0; col <= 12; col++) {
@@ -112,6 +125,12 @@ for (const name of sheetNames) {
   button.textContent = name;
   button.dataset.sheet = name;
   button.onclick = () => {
+    if (rangePicker.active) {
+      rangePicker.clear();
+      sheet = name;
+      render();
+      return;
+    }
     if (commit()) {
       selections.set(sheet, selected);
       sheet = name;
@@ -238,6 +257,7 @@ document.addEventListener('click', event => {
   if (!options.contains(event.target as Node)) options.open = false;
 });
 document.addEventListener('keydown', event => {
+  if (document.body.inert) return;
   if (event.isComposing) return;
   if (event.key === 'Escape') {
     if (options.open) {
