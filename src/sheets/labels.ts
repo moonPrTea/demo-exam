@@ -1,5 +1,6 @@
 export const words = {
   ru: {
+    pickRange: 'Выдели диапазон мышью, Escape отменяет выбор',
     title: 'Учебная книга',
     options: 'Сервис',
     language: 'Язык интерфейса',
@@ -17,6 +18,7 @@ export const words = {
     paste: 'Пока поддерживается вставка только одной ячейки',
   },
   en: {
+    pickRange: 'Drag to select a range; Escape cancels selection',
     title: 'Practice workbook',
     options: 'Tools',
     language: 'Interface language',

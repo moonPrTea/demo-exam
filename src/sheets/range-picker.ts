@@ -71,7 +71,7 @@ export function createRangePicker(grid: HTMLElement, sheet: () => string) {
   grid.addEventListener(
     'pointerdown',
     event => {
-      if (!finish || event.button !== 0) return;
+      if (!finish || event.button !== 0 || pointer !== -1) return;
       const hit = (event.target as Element).closest<HTMLElement>('[data-cell]');
       if (!hit) return;
       event.preventDefault();
@@ -114,7 +114,9 @@ export function createRangePicker(grid: HTMLElement, sheet: () => string) {
     stop();
     done?.(null);
   };
-  grid.addEventListener('pointercancel', cancel);
+  grid.addEventListener('pointercancel', event => {
+    if (event.pointerId === pointer) cancel();
+  });
   grid.addEventListener('lostpointercapture', () => {
     if (finish && pointer !== -1) cancel();
   });

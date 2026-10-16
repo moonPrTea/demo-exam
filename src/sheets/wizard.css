@@ -20,8 +20,37 @@ label {
   margin: 12px 0 5px;
 }
 input,
-textarea {
+textarea,
+select {
   width: 100%;
+}
+select {
+  font: inherit;
+  color: inherit;
+  background: #fff;
+  border: 1px solid #cbd1d5;
+  border-radius: 3px;
+  padding: 5px;
+}
+.wizard-columns {
+  display: grid;
+  grid-template-columns: minmax(160px, 0.85fr) minmax(0, 1.4fr);
+  gap: 24px;
+}
+.catalog-pane,
+.arguments-pane {
+  min-width: 0;
+}
+h2 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 12px 0 8px;
+  overflow-wrap: anywhere;
+}
+#support,
+#function-count {
+  color: #60686e;
+  font-size: 12px;
 }
 textarea {
   font:
@@ -33,54 +62,90 @@ textarea {
   border-radius: 3px;
 }
 #functions {
-  display: flex;
-  gap: 8px;
-  margin-top: 10px;
-  flex-wrap: wrap;
+  height: 220px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid #cbd1d5;
+  border-radius: 3px;
+  margin: 10px 0 6px;
 }
 #functions button {
-  border: 1px solid #cbd1d5;
+  display: block;
+  text-align: left;
+  width: 100%;
+  border-radius: 0;
+  overflow-wrap: anywhere;
 }
 #functions [aria-pressed='true'] {
   background: #e6e9eb;
-  border-color: #526c7c;
-}
-#arguments {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0 16px;
-}
-#arguments label:first-child {
-  grid-column: 1 / -1;
 }
 #arguments input {
-  display: block;
-  margin-top: 5px;
+  flex: 1;
+}
+.argument-field {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+.pick-range {
+  padding: 4px 6px;
+  display: grid;
+  place-items: center;
+  background: #f0f1f2;
 }
 #help {
   font-size: 12px;
 }
 #result {
   display: block;
-  margin-top: 12px;
+  flex: 1;
+  min-width: 0;
   overflow-wrap: anywhere;
+  max-height: 80px;
+  overflow: auto;
 }
 #result[data-error='true'] {
   color: #a12424;
 }
 footer {
   justify-content: flex-end;
+  align-items: center;
   border-top: 1px solid #d8dcdf;
   padding: 10px 16px;
 }
 #insert {
   background: #e6e9eb;
 }
-@media (max-width: 400px) {
+#range-panel {
+  display: none;
+}
+.picking main,
+.picking footer {
+  display: none;
+}
+.picking #range-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  height: 100%;
+}
+@media (max-width: 520px) {
+  footer {
+    flex-wrap: wrap;
+  }
+  #result {
+    flex-basis: 100%;
+  }
   main {
     padding: 12px;
   }
-  #arguments {
+  .wizard-columns {
     grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  #functions {
+    height: 140px;
   }
 }

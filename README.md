@@ -63,7 +63,7 @@ The exercise format remains 3 CSVs and 12 tables; it does not copy the number of
 
 Strict TypeScript, Electron and [Google gts](https://github.com/google/gts); 2-space indentation, single quotes, semicolons, brief comments.
 
-The independent [spreadsheet engine](./src/spreadsheet/README.md) powers **Разбор CSV в Calc → Открыть редактор таблиц**: a separate window with a 100×12 grid, formula bar, undo and RU/EN interface. Click **ƒx** to search INDEX/MATCH, fill arguments and preview the result in a separate function wizard. The demonstration workbook is memory-only, without file import/save. The existing Calc walkthrough still requires LibreOffice.
+The independent [spreadsheet engine](./src/spreadsheet/README.md) powers **Разбор CSV в Calc → Открыть редактор таблиц**: a separate window with a 100×12 grid, formula bar, undo and RU/EN interface. **ƒx** opens the [Calc 25.8 catalog](./docs/calc-catalog.md): 530 functions, bilingual search and categories. Only INDEX/MATCH calculate so far; other entries are explicitly catalog-only. The button beside an argument collapses the wizard: drag over cells, on any sheet, to insert a reference. Escape cancels selection. The demonstration workbook is memory-only, without file import/save. The existing Calc walkthrough still requires LibreOffice.
 
 | Command                | Purpose                                         |
 | ---------------------- | ----------------------------------------------- |

@@ -25,6 +25,11 @@ function restoreCell(original: WizardContext) {
   render();
   formula.value = original.formula;
   draft = formula.value !== session.source(sheet, selected, language);
+  cells.get(selected)?.scrollIntoView({
+    block: 'nearest',
+    inline: 'nearest',
+    container: 'nearest',
+  } as ScrollIntoViewOptions);
 }
 query('#function-wizard').onclick = functionDialog(
   book,
@@ -36,7 +41,10 @@ query('#function-wizard').onclick = functionDialog(
     return commit();
   },
   restoreCell,
-  done => rangePicker.start(done),
+  done => {
+    status(words[language].pickRange);
+    return rangePicker.start(done);
+  },
 );
 const head = grid.createTHead().insertRow();
 for (let col = 0; col <= 12; col++) {
@@ -129,6 +137,7 @@ for (const name of sheetNames) {
       rangePicker.clear();
       sheet = name;
       render();
+      status(words[language].pickRange);
       return;
     }
     if (commit()) {

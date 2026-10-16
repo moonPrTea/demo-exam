@@ -196,6 +196,10 @@ td.number {
   cursor: crosshair;
   user-select: none;
 }
+.picking-range td[aria-selected='true']:not(.range-cell) {
+  background: #fff;
+  box-shadow: none;
+}
 td.range-cell {
   background: #e2edf5;
   box-shadow: inset 0 0 0 1px #526c7c;

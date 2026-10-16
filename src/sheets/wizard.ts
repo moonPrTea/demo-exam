@@ -1,5 +1,8 @@
 import {query} from '../dom.js';
 import {Workbook, isCellError} from '../spreadsheet/index.js';
+import {argumentPicker} from './argument-picker.js';
+import {functionList} from './function-list.js';
+import {catalog, categories} from './function-catalog.js';
 import {
   buildFunction,
   functions,
@@ -39,10 +42,18 @@ const text = {
 const book = new Workbook();
 let context: WizardContext;
 let current: FunctionName = 'INDEX';
+let selected = 'INDEX';
+let list: (name: string) => void = () => {};
 let initialized = false;
 const drafts = {INDEX: ['', '', ''], MATCH: ['', '', '0']};
 const expression = query<HTMLTextAreaElement>('#expression');
 const insert = query<HTMLButtonElement>('#insert');
+const picker = argumentPicker((index, reference) => {
+  drafts[current][index] = reference;
+  expression.value = buildFunction(current, drafts[current], context.language);
+  fields();
+  preview();
+});
 function preview() {
   insert.disabled = true;
   const result = query('#result');
@@ -63,6 +74,10 @@ function preview() {
   }
 }
 function fields() {
+  query('#function-name').textContent =
+    `${functions[current][context.language][0]} / ${current}`;
+  query('#support').textContent =
+    context.language === 'ru' ? 'Вычисления доступны' : 'Calculation supported';
   const definition = functions[current];
   query('#description').textContent = definition[context.language][1];
   query('#arguments').replaceChildren(
@@ -84,52 +99,57 @@ function fields() {
         );
         preview();
       };
-      label.append(input);
+      const row = document.createElement('span');
+      row.className = 'argument-field';
+      row.append(input, picker.button(index, context.language));
+      label.append(row);
       return label;
     }),
   );
 }
-function list() {
-  const search = query<HTMLInputElement>('#search')
-    .value.trim()
-    .toLocaleLowerCase();
-  const matches = (Object.keys(functions) as FunctionName[]).filter(name =>
-    [name, ...functions[name].ru, ...functions[name].en]
-      .join(' ')
-      .toLocaleLowerCase()
-      .includes(search),
-  );
-  query('#functions').replaceChildren(
-    ...matches.map(name => {
-      const button = document.createElement('button');
-      button.textContent = functions[name][context.language][0];
-      button.dataset.function = name;
-      button.setAttribute('aria-pressed', String(name === current));
-      button.onclick = () => {
-        current = name;
-        expression.value = buildFunction(
-          current,
-          drafts[current],
-          context.language,
-        );
-        fields();
-        list();
-        preview();
-        query<HTMLInputElement>('[data-argument="0"]').focus();
-      };
-      return button;
-    }),
-  );
-  if (!matches.length)
-    query('#functions').textContent = text[context.language][6];
+function describe(name: string) {
+  const item = catalog.find(entry => entry.en === name)!;
+  selected = name;
+  if (name === 'INDEX' || name === 'MATCH') {
+    current = name;
+    fields();
+  } else {
+    query('#function-name').textContent =
+      `${item[context.language]} / ${item.en}`;
+    query('#description').textContent =
+      categories[item.category][context.language === 'ru' ? 0 : 1];
+    query('#support').textContent =
+      context.language === 'ru'
+        ? 'Только каталог: вычисления и мастер аргументов пока не реализованы'
+        : 'Catalog only: calculation and argument editor are not implemented yet';
+    query('#arguments').replaceChildren();
+  }
+  list(selected);
+}
+function choose(name: string) {
+  describe(name);
+  expression.value =
+    name === 'INDEX' || name === 'MATCH'
+      ? buildFunction(current, drafts[current], context.language)
+      : `=${catalog.find(entry => entry.en === name)![context.language]}()`;
+  preview();
 }
 expression.oninput = () => {
   const parsed = readFunction(expression.value, context.language);
   if (parsed && parsed.args.length <= 3) {
     current = parsed.name;
+    selected = current;
     drafts[current] = [0, 1, 2].map(index => parsed.args[index] ?? '');
     fields();
-    list();
+    list(selected);
+  } else {
+    const name = /^=\s*([\p{L}\p{N}_.]+)\s*\(/u
+      .exec(expression.value)?.[1]
+      .toUpperCase();
+    const item = catalog.find(
+      entry => entry.en === name || entry.ru.toUpperCase() === name,
+    );
+    if (item) describe(item.en);
   }
   preview();
 };
@@ -151,6 +171,9 @@ window.addEventListener('message', event => {
   );
   query('#target').textContent = `${context.sheet}, ${context.address}`;
   query('#help').textContent = labels[7];
+  query('#category-label').textContent =
+    context.language === 'ru' ? 'Категория' : 'Category';
+  list = functionList(context.language, choose);
   for (const sheet of context.sheets) book.addSheet(sheet);
   book.setCells(context.cells);
   const parsed = readFunction(context.formula, context.language);
@@ -162,12 +185,12 @@ window.addEventListener('message', event => {
     ? context.formula
     : buildFunction(current, drafts[current], context.language);
   fields();
-  list();
+  selected = current;
+  list(selected);
   preview();
   query('main').removeAttribute('inert');
   query('#search').focus();
 });
-query('#search').oninput = list;
 query('#cancel').onclick = () => window.close();
 insert.onclick = () => {
   if (!insert.disabled)
@@ -178,7 +201,10 @@ insert.onclick = () => {
 };
 document.addEventListener('keydown', event => {
   if (event.isComposing) return;
-  if (event.key === 'Escape') window.close();
+  if (event.key === 'Escape') {
+    if (picker.active) picker.cancel();
+    else window.close();
+  }
   if (event.key === 'Enter' && event.target === query('#search')) {
     event.preventDefault();
     document.querySelector<HTMLButtonElement>('#functions button')?.click();
