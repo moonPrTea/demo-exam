@@ -1,5 +1,12 @@
 export const words = {
   ru: {
+    renameSheet: 'Переименовать лист',
+    deleteSheet: 'Удалить лист',
+    sheetName: 'Название листа',
+    deleteWarning:
+      'Данные листа будут удалены без возможности отмены, ссылки на него станут #REF!',
+    invalidName:
+      'Введите уникальное название от 1 до 100 символов без управляющих символов',
     newDocument: 'Без имени',
     pickRange: 'Выдели диапазон мышью, Escape отменяет выбор',
     title: 'Учебная книга',
@@ -19,6 +26,13 @@ export const words = {
     paste: 'Пока поддерживается вставка только одной ячейки',
   },
   en: {
+    renameSheet: 'Rename sheet',
+    deleteSheet: 'Delete sheet',
+    sheetName: 'Sheet name',
+    deleteWarning:
+      'Sheet data will be permanently deleted and references to it will become #REF!',
+    invalidName:
+      'Enter a unique name of 1 to 100 characters without control characters',
     newDocument: 'Untitled',
     pickRange: 'Drag to select a range; Escape cancels selection',
     title: 'Practice workbook',

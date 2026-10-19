@@ -65,7 +65,7 @@ Strict TypeScript, Electron and [Google gts](https://github.com/google/gts); 2-s
 
 The independent [spreadsheet engine](./src/spreadsheet/README.md) powers **Разбор CSV в Calc → Открыть редактор таблиц**: a separate window with a 100×12 grid, formula bar, undo and RU/EN interface. **ƒx** opens the [Calc 25.8 catalog](./docs/calc-catalog.md): 530 functions, bilingual search and categories. Only INDEX/MATCH calculate so far; other entries are explicitly catalog-only. The button beside an argument collapses the wizard: drag over cells, on any sheet, to insert a reference. Escape cancels selection. The demonstration workbook is memory-only, without file import/save. The existing Calc walkthrough still requires LibreOffice.
 
-Right-click a sheet tab to add a sheet. Cmd+N or Ctrl+N opens a separate blank workbook without replacing the current one.
+Right-click a sheet tab to add, rename or delete a sheet. Deletion requires confirmation; the last sheet is protected. Renaming updates formula references; deletion turns them into `#REF!`. Cmd+N or Ctrl+N opens a separate blank workbook.
 
 | Command                | Purpose                                         |
 | ---------------------- | ----------------------------------------------- |

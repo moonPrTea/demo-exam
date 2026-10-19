@@ -24,19 +24,43 @@ function trustedEditor(event: IpcMainEvent, language: unknown) {
 ipcMain.on('sheet-new-document', (event, language: unknown) => {
   if (trustedEditor(event, language)) createEditor(true, language as string);
 });
-ipcMain.on('sheet-menu', (event, language: unknown) => {
-  const window = trustedEditor(event, language);
-  if (!window) return;
-  Menu.buildFromTemplate([
-    {
-      label: language === 'ru' ? 'Создать новый лист' : 'New sheet',
-      click: () => {
-        if (!window.isDestroyed())
-          window.webContents.send('sheet-command', 'add-sheet');
+ipcMain.on(
+  'sheet-menu',
+  (event, language: unknown, sheet: unknown, count: unknown) => {
+    const window = trustedEditor(event, language);
+    if (
+      !window ||
+      typeof sheet !== 'string' ||
+      !sheet.trim() ||
+      sheet.length > 100 ||
+      typeof count !== 'number' ||
+      !Number.isInteger(count) ||
+      count < 1 ||
+      count > 128
+    )
+      return;
+    const send = (command: string) => {
+      if (!window.isDestroyed())
+        window.webContents.send('sheet-command', command, sheet);
+    };
+    Menu.buildFromTemplate([
+      {
+        label: language === 'ru' ? 'Создать новый лист' : 'New sheet',
+        click: () => send('add-sheet'),
       },
-    },
-  ]).popup({window});
-});
+      {
+        label: language === 'ru' ? 'Переименовать лист' : 'Rename sheet',
+        click: () => send('rename-sheet'),
+      },
+      {type: 'separator'},
+      {
+        label: language === 'ru' ? 'Удалить лист' : 'Delete sheet',
+        enabled: count > 1,
+        click: () => send('delete-sheet'),
+      },
+    ]).popup({window});
+  },
+);
 const expanded = new WeakMap<BrowserWindow, Rectangle>();
 ipcMain.on('sheet-range-picking', (event, active: unknown) => {
   const child = BrowserWindow.fromWebContents(event.sender);

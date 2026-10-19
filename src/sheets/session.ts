@@ -1,4 +1,5 @@
 import {calcLesson} from '../core/calc-lesson.js';
+import {changeSheetInput} from '../spreadsheet/sheet-references.js';
 import {
   Workbook,
   type CellChange,
@@ -97,6 +98,30 @@ export class SheetSession {
     )
       return "'" + input;
     return String(input ?? '');
+  }
+
+  renameSheet(name: string, newName: string) {
+    this.book.renameSheet(name, newName);
+    this.history = this.history.map(change => ({
+      ...change,
+      sheet:
+        change.sheet.toLowerCase() === name.toLowerCase()
+          ? newName
+          : change.sheet,
+      input: changeSheetInput(change.input, name, newName),
+    }));
+    this.dirty = true;
+  }
+
+  deleteSheet(name: string) {
+    this.book.deleteSheet(name);
+    this.history = this.history
+      .filter(change => change.sheet.toLowerCase() !== name.toLowerCase())
+      .map(change => ({
+        ...change,
+        input: changeSheetInput(change.input, name),
+      }));
+    this.dirty = true;
   }
 
   write(sheet: string, address: string, text: string) {

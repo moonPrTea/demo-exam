@@ -9,9 +9,9 @@ import {words} from './labels.js';
 declare global {
   interface Window {
     sheetDesktop?: {
-      menu: (language: string) => void;
+      menu: (language: string, sheet: string, count: number) => void;
       newDocument: (language: string) => void;
-      onCommand: (callback: (command: string) => void) => void;
+      onCommand: (callback: (command: string, sheet?: string) => void) => void;
     };
   }
 }
@@ -165,15 +165,103 @@ function addTab(name: string) {
   query('#sheets').append(button);
 }
 for (const name of book.getSheetNames()) addTab(name);
+const sheetDialog = query<HTMLDialogElement>('#sheet-dialog');
+const sheetName = query<HTMLInputElement>('#sheet-name');
+let sheetAction = {command: '', target: ''};
+query('#sheet-dialog-cancel').onclick = () => sheetDialog.close();
+query('#sheet-action').addEventListener('submit', event => {
+  event.preventDefault();
+  const {command, target} = sheetAction;
+  const name = sheetName.value.trim();
+  if (
+    command === 'rename-sheet' &&
+    (!name ||
+      name.length > 100 ||
+      [...name].some(c => c.charCodeAt(0) < 32) ||
+      book
+        .getSheetNames()
+        .some(n => n !== target && n.toLowerCase() === name.toLowerCase()))
+  ) {
+    query('#sheet-dialog-error').textContent = words[language].invalidName;
+    sheetName.focus();
+    return;
+  }
+  if (!commit()) {
+    sheetDialog.close();
+    return;
+  }
+  try {
+    if (command === 'rename-sheet') {
+      session.renameSheet(target, name);
+      if (sheet === target) sheet = name;
+      if (selections.has(target)) selections.set(name, selections.get(target)!);
+    } else {
+      const names = book.getSheetNames();
+      session.deleteSheet(target);
+      if (sheet === target) {
+        sheet = book.getSheetNames()[Math.max(0, names.indexOf(target) - 1)];
+        selected = selections.get(sheet) ?? 'A1';
+      }
+    }
+    if (target !== name || command === 'delete-sheet')
+      selections.delete(target);
+    query('#sheets').replaceChildren();
+    for (const title of book.getSheetNames()) addTab(title);
+    render();
+    query('#sheets [aria-pressed="true"]').scrollIntoView({
+      block: 'nearest',
+      inline: 'nearest',
+      container: 'nearest',
+    } as ScrollIntoViewOptions);
+    sheetDialog.close();
+    cells.get(selected)?.focus({preventScroll: true});
+  } catch (error) {
+    query('#sheet-dialog-error').textContent = String(error);
+  }
+});
 query('#sheets').addEventListener('contextmenu', event => {
-  if (!(event.target as Element).closest('[data-sheet]')) return;
+  const tab = (event.target as Element).closest<HTMLElement>('[data-sheet]');
+  if (!tab) return;
   event.preventDefault();
   if (!rangePicker.active && !document.body.inert)
-    window.sheetDesktop?.menu(language);
+    window.sheetDesktop?.menu(
+      language,
+      tab.dataset.sheet!,
+      book.getSheetNames().length,
+    );
 });
-window.sheetDesktop?.onCommand(command => {
+window.sheetDesktop?.onCommand((command, target) => {
   if (command === 'new-document') {
     window.sheetDesktop?.newDocument(language);
+    return;
+  }
+  if (rangePicker.active || document.body.inert || sheetDialog.open) return;
+  if (['rename-sheet', 'delete-sheet'].includes(command)) {
+    if (
+      !target ||
+      !book.getSheetNames().includes(target) ||
+      (command === 'delete-sheet' && book.getSheetNames().length === 1)
+    )
+      return;
+    const rename = command === 'rename-sheet';
+    sheetAction = {command, target};
+    query('#sheet-dialog-title').textContent =
+      words[language][rename ? 'renameSheet' : 'deleteSheet'];
+    query('#sheet-dialog-detail').textContent = rename
+      ? target
+      : `${target}: ${words[language].deleteWarning}`;
+    query('#sheet-name-label').textContent = words[language].sheetName;
+    query('#sheet-name-label').hidden = sheetName.hidden = !rename;
+    sheetName.value = target;
+    query('#sheet-dialog-error').textContent = '';
+    query('#sheet-dialog-cancel').textContent = words[language].cancel;
+    query('#sheet-dialog-apply').textContent =
+      words[language][rename ? 'apply' : 'deleteSheet'];
+    sheetDialog.showModal();
+    if (rename) {
+      sheetName.focus();
+      sheetName.select();
+    } else query<HTMLButtonElement>('#sheet-dialog-cancel').focus();
     return;
   }
   if (
@@ -316,7 +404,7 @@ document.addEventListener('click', event => {
   if (!options.contains(event.target as Node)) options.open = false;
 });
 document.addEventListener('keydown', event => {
-  if (document.body.inert) return;
+  if (document.body.inert || sheetDialog.open) return;
   if (event.isComposing) return;
   if (event.key === 'Escape') {
     if (options.open) {

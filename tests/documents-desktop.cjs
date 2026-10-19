@@ -245,6 +245,146 @@ async function run() {
     (await third.webContents.capturePage()).toPNG(),
   );
   let confirmations = 0;
+  const sheetMenu = async (window, name, action) => {
+    menu = null;
+    await evaluate(
+      window,
+      `document.querySelectorAll('[data-sheet]').forEach(tab => {
+      if (tab.dataset.sheet === ${JSON.stringify(name)}) tab.dispatchEvent(new MouseEvent('contextmenu', {bubbles:true}));
+    })`,
+    );
+    await wait(() => !!menu);
+    if (action !== undefined) {
+      menu.items[action].click();
+      await wait(() =>
+        evaluate(window, 'document.querySelector("#sheet-dialog").open'),
+      );
+    }
+  };
+  const rename = async (window, value) => {
+    await evaluate(
+      window,
+      `document.querySelector('#sheet-name').value = ${JSON.stringify(value)}`,
+    );
+    await click(window, '#sheet-dialog-apply');
+  };
+  await sheetMenu(original, 'Категории', 1);
+  original.focus();
+  original.webContents.sendInputEvent({type: 'keyDown', keyCode: 'Escape'});
+  original.webContents.sendInputEvent({type: 'keyUp', keyCode: 'Escape'});
+  await wait(() =>
+    evaluate(original, '!document.querySelector("#sheet-dialog").open'),
+  );
+  assert.equal(
+    await evaluate(original, 'document.querySelector("#formula").value'),
+    '=99',
+  );
+  await sheetMenu(original, 'Категории', 1);
+  await rename(original, 'Практика');
+  assert.ok(
+    await evaluate(
+      original,
+      'document.querySelector("#sheet-dialog-error").textContent',
+    ),
+  );
+  await rename(original, '   ');
+  assert.equal(
+    await evaluate(original, 'document.querySelector("#sheet-dialog").open'),
+    true,
+  );
+  await fs.writeFile(
+    path.join(directory, 'rename-error.png'),
+    (await original.webContents.capturePage()).toPNG(),
+  );
+  const value = await evaluate(
+    original,
+    'document.querySelector("[data-cell=H3]").textContent',
+  );
+  await rename(original, "Справочник 'категорий'");
+  assert.equal(
+    await evaluate(
+      original,
+      'document.querySelector("[data-cell=H3]").textContent',
+    ),
+    value,
+  );
+  assert.equal(
+    await evaluate(
+      original,
+      'document.querySelector("#selection").textContent',
+    ),
+    'Практика, H2',
+  );
+  await sheetMenu(original, "Справочник 'категорий'", 3);
+  assert.equal(
+    await evaluate(original, 'document.activeElement.id'),
+    'sheet-dialog-cancel',
+  );
+  await click(original, '#sheet-dialog-cancel');
+  assert.equal(
+    await evaluate(
+      original,
+      'document.querySelectorAll("[data-sheet]").length',
+    ),
+    4,
+  );
+  await sheetMenu(original, "Справочник 'категорий'", 3);
+  await click(original, '#sheet-dialog-apply');
+  assert.equal(
+    await evaluate(
+      original,
+      'document.querySelector("[data-cell=H3]").textContent',
+    ),
+    '#REF!',
+  );
+  console.log(
+    '4. Rename updates references, invalid names are blocked, Escape preserves drafts and deletion requires confirmation',
+  );
+  await sheetMenu(third, 'Sheet2', 1);
+  assert.equal(
+    await evaluate(
+      third,
+      'document.querySelector("#sheet-dialog-title").textContent',
+    ),
+    'Rename sheet',
+  );
+  await rename(third, 'Notes');
+  assert.equal(
+    await evaluate(third, 'document.querySelector("#selection").textContent'),
+    'Notes, A1',
+  );
+  await sheetMenu(third, 'Notes', 3);
+  await fs.writeFile(
+    path.join(directory, 'delete-narrow.png'),
+    (await third.webContents.capturePage()).toPNG(),
+  );
+  assert.equal(
+    await evaluate(
+      third,
+      'document.documentElement.scrollWidth <= innerWidth && document.querySelector("#sheet-dialog").scrollWidth <= document.querySelector("#sheet-dialog").clientWidth',
+    ),
+    true,
+  );
+  await click(third, '#sheet-dialog-apply');
+  assert.equal(
+    await evaluate(third, 'document.querySelector("#selection").textContent'),
+    'Sheet1, A1',
+  );
+  await sheetMenu(third, 'Sheet1');
+  assert.equal(menu.items[3].enabled, false);
+  menu.items[3].click();
+  await evaluate(third, 'new Promise(resolve => setTimeout(resolve, 50))');
+  assert.equal(
+    await evaluate(third, 'document.querySelector("#sheet-dialog").open'),
+    false,
+  );
+  assert.equal(
+    await evaluate(third, 'document.querySelectorAll("[data-sheet]").length'),
+    1,
+  );
+  console.log(
+    '5. Active-sheet deletion selects a survivor, last-sheet deletion is disabled and guarded in the renderer',
+  );
   dialog.showMessageBoxSync = () => {
     confirmations++;
     return 0;
@@ -261,7 +401,7 @@ async function run() {
   assert.equal(BrowserWindow.getAllWindows().length, 2);
   assert.equal(original.isDestroyed(), false);
   console.log(
-    '4. Closing one document keeps others alive and asks before discarding edits',
+    '6. Closing one document keeps others alive and asks before discarding edits',
   );
   assert.deepEqual(errors, []);
   console.log('Screenshot:', directory);

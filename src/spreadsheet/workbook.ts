@@ -7,6 +7,7 @@ import {
   type Reference,
 } from './address.js';
 import {evaluate} from './evaluate.js';
+import {changeSheetReferences} from './sheet-references.js';
 import {
   formatExpression,
   parseFormula,
@@ -61,6 +62,61 @@ export class Workbook {
 
   getSheetNames(): string[] {
     return [...this.sheets.values()];
+  }
+
+  renameSheet(name: string, newName: string): void {
+    const validation = new Workbook();
+    validation.addSheet(newName);
+    if (
+      sheetKey(name) !== sheetKey(newName) &&
+      this.sheets.has(sheetKey(newName))
+    )
+      throw new Error('Sheet already exists');
+    this.changeSheet(name, newName);
+  }
+
+  deleteSheet(name: string): void {
+    if (this.sheets.size <= 1) throw new Error('Cannot delete the last sheet');
+    this.changeSheet(name);
+  }
+
+  private changeSheet(name: string, newName?: string) {
+    const key = sheetKey(name);
+    if (!this.sheets.has(key)) throw new Error('Unknown sheet');
+    const next = new Workbook();
+    for (const [id, title] of this.sheets) {
+      if (id !== key) next.addSheet(title);
+      else if (newName !== undefined) next.addSheet(newName);
+    }
+    for (const [id, cell] of this.cells) {
+      const [source, row, column] = JSON.parse(id) as [string, number, number];
+      if (source === key && newName === undefined) continue;
+      const target = source === key ? newName! : this.sheets.get(source)!;
+      const expression = cell.expression
+        ? changeSheetReferences(cell.expression, name, newName)
+        : undefined;
+      const input =
+        expression &&
+        JSON.stringify(expression) !== JSON.stringify(cell.expression)
+          ? {formula: formatExpression(expression)}
+          : cell.input;
+      const dependencies = expression
+        ? next.references(target, expression)
+        : new Set<string>();
+      const targetKey = JSON.stringify([sheetKey(target), row, column]);
+      next.cells.set(targetKey, {input, expression, dependencies});
+      next.dependencyCount += dependencies.size;
+      for (const dependency of dependencies) {
+        if (!next.dependents.has(dependency))
+          next.dependents.set(dependency, new Set());
+        next.dependents.get(dependency)!.add(targetKey);
+      }
+    }
+    this.sheets = next.sheets;
+    this.cells = next.cells;
+    this.dependents = next.dependents;
+    this.dependencyCount = next.dependencyCount;
+    this.cache.clear();
   }
 
   setCell(sheet: string, address: string, input: CellInput): void {

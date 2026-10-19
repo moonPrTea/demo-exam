@@ -56,6 +56,24 @@
       <table id="grid" role="grid" aria-label="Таблица"></table>
     </div>
     <nav id="sheets" aria-label="Листы"></nav>
+    <dialog id="sheet-dialog" aria-labelledby="sheet-dialog-title">
+      <form id="sheet-action">
+        <h2 id="sheet-dialog-title"></h2>
+        <p id="sheet-dialog-detail"></p>
+        <label id="sheet-name-label" for="sheet-name"></label>
+        <input
+          id="sheet-name"
+          maxlength="100"
+          autocomplete="off"
+          aria-describedby="sheet-dialog-error"
+        />
+        <p id="sheet-dialog-error" role="alert"></p>
+        <div class="dialog-actions">
+          <button type="button" id="sheet-dialog-cancel"></button>
+          <button type="submit" id="sheet-dialog-apply"></button>
+        </div>
+      </form>
+    </dialog>
     <footer>
       <span id="selection"></span
       ><output id="status" aria-live="polite"></output>
