@@ -27,11 +27,13 @@ export function parseInput(text: string): CellInput {
 }
 
 export class SheetSession {
-  readonly book = new Workbook();
+  readonly book: Workbook;
   private history: CellChange[][] = [];
   dirty = false;
 
-  constructor(blankSheet?: string) {
+  constructor(blankSheet?: string, restored?: Workbook) {
+    this.book = restored ?? new Workbook();
+    if (restored) return;
     if (blankSheet) {
       this.book.addSheet(blankSheet);
       return;
@@ -148,7 +150,10 @@ export class SheetSession {
 
   undo(): CellChange | undefined {
     const batch = this.history.pop();
-    if (batch) this.book.setCells(batch);
+    if (batch) {
+      this.book.setCells(batch);
+      this.dirty = true;
+    }
     return batch?.[0];
   }
 }

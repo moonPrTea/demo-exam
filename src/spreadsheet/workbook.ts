@@ -64,6 +64,25 @@ export class Workbook {
     return [...this.sheets.values()];
   }
 
+  getInputs(): CellChange[] {
+    return [...this.cells].map(([key, cell]) => {
+      const [sheet, row, column] = JSON.parse(key) as [string, number, number];
+      return {
+        sheet: this.sheets.get(sheet)!,
+        address: addressName({
+          row,
+          column,
+          rowAbsolute: false,
+          columnAbsolute: false,
+        }),
+        input:
+          typeof cell.input === 'object' && cell.input !== null
+            ? {...cell.input}
+            : cell.input,
+      };
+    });
+  }
+
   renameSheet(name: string, newName: string): void {
     const validation = new Workbook();
     validation.addSheet(newName);
