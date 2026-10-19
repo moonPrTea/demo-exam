@@ -28,7 +28,7 @@ export function parseInput(text: string): CellInput {
 
 export class SheetSession {
   readonly book = new Workbook();
-  private history: CellChange[] = [];
+  private history: CellChange[][] = [];
   dirty = false;
 
   constructor(blankSheet?: string) {
@@ -102,41 +102,53 @@ export class SheetSession {
 
   renameSheet(name: string, newName: string) {
     this.book.renameSheet(name, newName);
-    this.history = this.history.map(change => ({
-      ...change,
-      sheet:
-        change.sheet.toLowerCase() === name.toLowerCase()
-          ? newName
-          : change.sheet,
-      input: changeSheetInput(change.input, name, newName),
-    }));
+    this.history = this.history.map(batch =>
+      batch.map(change => ({
+        ...change,
+        sheet:
+          change.sheet.toLowerCase() === name.toLowerCase()
+            ? newName
+            : change.sheet,
+        input: changeSheetInput(change.input, name, newName),
+      })),
+    );
     this.dirty = true;
   }
 
   deleteSheet(name: string) {
     this.book.deleteSheet(name);
     this.history = this.history
-      .filter(change => change.sheet.toLowerCase() !== name.toLowerCase())
-      .map(change => ({
-        ...change,
-        input: changeSheetInput(change.input, name),
-      }));
+      .map(batch =>
+        batch
+          .filter(change => change.sheet.toLowerCase() !== name.toLowerCase())
+          .map(change => ({
+            ...change,
+            input: changeSheetInput(change.input, name),
+          })),
+      )
+      .filter(batch => batch.length);
     this.dirty = true;
   }
 
   write(sheet: string, address: string, text: string) {
-    const input = parseInput(text);
-    const previous = this.book.getCell(sheet, address);
-    if (JSON.stringify(previous) === JSON.stringify(input)) return;
-    this.book.setCell(sheet, address, input);
-    this.history.push({sheet, address, input: previous});
+    this.writeBatch([{sheet, address, input: parseInput(text)}]);
+  }
+
+  writeBatch(changes: CellChange[]) {
+    const previous = changes.map(change => ({
+      ...change,
+      input: this.book.getCell(change.sheet, change.address),
+    }));
+    if (JSON.stringify(previous) === JSON.stringify(changes)) return;
+    this.book.setCells(changes);
+    this.history.push(previous);
     if (this.history.length > 100) this.history.shift();
     this.dirty = true;
   }
 
   undo(): CellChange | undefined {
-    const change = this.history.pop();
-    if (change) this.book.setCell(change.sheet, change.address, change.input);
-    return change;
+    const batch = this.history.pop();
+    if (batch) this.book.setCells(batch);
+    return batch?.[0];
   }
 }
