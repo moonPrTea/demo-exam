@@ -76,8 +76,10 @@ async function run() {
       );
     }
   };
-  const click = selector =>
-    evaluate(`document.querySelector(${JSON.stringify(selector)}).click()`);
+  const click = async selector => {
+    await evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+    return evaluate(`document.querySelector(${JSON.stringify(selector)}).click()`);
+  };
   const text = selector =>
     evaluate(
       `document.querySelector(${JSON.stringify(selector)}).textContent.replace(/\\s+/g, ' ').trim()`,
@@ -152,6 +154,15 @@ async function run() {
   await click('[data-action="lesson-answer"][data-answer="0"]');
   assert.match(await text('.lesson-question'), /Верно/);
   await capture('calc-lesson');
+  assert.equal(await evaluate('document.querySelector(".sidebar-note")'), null);
+  assert.equal(await evaluate('document.querySelectorAll(".calc-option").length'), 3);
+  for (const width of [1440, 1000, 900]) {
+    window.setContentSize(width, 900);
+    await evaluate(`document.querySelector('.calc-launch').scrollIntoView({block:'start'});`);
+    await capture(`calc-options-${width}`);
+    assert.equal(await evaluate(`document.documentElement.scrollWidth <= innerWidth && [...document.querySelectorAll('.calc-option')].every(e => getComputedStyle(e).gap === '16px' && e.scrollWidth <= e.clientWidth)`), true);
+  }
+  window.setContentSize(1440, 960);
   await click('[data-action="open-calc"]');
   await evaluate(`new Promise((resolve, reject) => {
     const deadline = Date.now() + 3000;
@@ -258,6 +269,21 @@ async function run() {
     1,
   );
   await click('[data-view="generator"]');
+  for (const width of [1440, 1000, 900]) {
+    window.setContentSize(width, 960);
+    await evaluate(`document.querySelector('.normalization-panel').scrollIntoView({block:'start'}); document.querySelector('#normalization-form input').focus({preventScroll:true});`);
+    await capture(`upload-${width}`);
+    assert.equal(await evaluate(`(() => {
+      const form = document.querySelector('#normalization-form');
+      const picker = form.querySelector('.file-picker');
+      const button = form.querySelector('button[type=submit]');
+      const label = form.querySelector('.file-picker-button');
+      const select = form.querySelector('.select-trigger');
+      return document.documentElement.scrollWidth <= innerWidth && picker.scrollWidth <= picker.clientWidth && label.getBoundingClientRect().height <= picker.clientHeight && button.getBoundingClientRect().width < 300 && picker.getBoundingClientRect().height === select.getBoundingClientRect().height;
+    })()`), true);
+  }
+  window.setContentSize(1440, 960);
+  assert.equal(await text('[data-file-summary]'), 'Файлы не выбраны');
   await evaluate(`(async () => {
     const {normalizationModel} = await import('./core/normalization-model.js');
     const {generateDataset} = await import('./core/generator.js');
@@ -273,6 +299,7 @@ async function run() {
     transfer.items.add(new File([JSON.stringify(schema)], 'schema.json', {type: 'application/json'}));
     const form = document.querySelector('#normalization-form');
     form.elements.namedItem('files').files = transfer.files;
+    form.elements.namedItem('files').dispatchEvent(new Event('change', {bubbles: true}));
     form.requestSubmit();
   })()`);
   await evaluate(`new Promise((resolve, reject) => {
@@ -287,6 +314,10 @@ async function run() {
     "document.querySelector('.normalization-panel').scrollIntoView()",
   );
   await capture('normalization');
+  assert.equal(await text('[data-file-summary]'), 'Выбрано файлов: 13');
+  await evaluate(`(() => {const input = document.querySelector('#normalization-form input'); input.value = ''; input.dispatchEvent(new Event('change', {bubbles:true}));})()`);
+  assert.equal(await text('[data-file-summary]'), 'Файлы не выбраны');
+  assert.equal(await text('.normalization-result'), '');
   await click('.number-field [data-step="1"]');
   assert.equal(
     await evaluate('document.querySelector("[name=size]").value'),

@@ -17,8 +17,7 @@ export function normalizationView(data: Dataset) {
   return html`<section class="panel normalization-panel">
     <h2>Проверить свои таблицы</h2>
     <p>
-      Загрузи 12 CSV и schema.json с описанием своей схемы для варианта
-      ${esc(data.config.seed)}. Файлы обрабатываются на устройстве
+      Вариант ${esc(data.config.seed)}: 12 CSV и schema.json с описанием схемы
     </p>
     <details>
       <summary>Как описать схему</summary>
@@ -58,24 +57,46 @@ export function normalizationView(data: Dataset) {
       </p>
     </details>
     <form id="normalization-form">
-      <label
-        >Таблицы и описание схемы<input
-          name="files"
-          type="file"
-          accept=".csv,.json"
-          multiple
-          required
-      /></label>
+      <label class="normalization-files"
+        >Таблицы и описание схемы<span class="file-picker"
+          ><span class="file-picker-button">Выбрать файлы</span
+          ><span data-file-summary aria-live="polite">Файлы не выбраны</span
+          ><input
+            name="files"
+            type="file"
+            accept=".csv,.json"
+            multiple
+            required /></span
+      ></label>
       <label
         >Разделитель<select name="delimiter">
           <option value=";">Точка с запятой ;</option>
           <option value=",">Запятая ,</option>
         </select></label
       >
-      <button class="button primary" type="submit">Проверить файлы</button>
+      <div class="normalization-actions">
+        <button class="button primary" type="submit">Проверить файлы</button
+        ><span class="small-note"
+          >До 2 МБ на файл, обработка на устройстве</span
+        >
+      </div>
     </form>
     <div class="normalization-result" role="status" aria-live="polite"></div>
   </section>`;
+}
+
+export function updateNormalizationFiles(input: HTMLInputElement) {
+  const output = input.closest('label')?.querySelector('[data-file-summary]');
+  if (!output) return;
+  const files = [...(input.files ?? [])];
+  output.textContent = files.length
+    ? `Выбрано файлов: ${files.length}`
+    : 'Файлы не выбраны';
+  output.setAttribute('title', files.map(file => file.name).join('\n'));
+  input
+    .closest('.normalization-panel')
+    ?.querySelector('.normalization-result')
+    ?.replaceChildren();
 }
 
 export async function checkNormalizationForm(

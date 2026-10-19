@@ -228,11 +228,31 @@
 }
 .calc-launch {
   margin-top: 24px;
+  padding: 0;
+  overflow: hidden;
+}
+.calc-option {
+  display: grid;
+  justify-items: start;
+  gap: 16px;
   padding: 24px;
 }
-.calc-launch p {
-  margin-block: 16px;
+.calc-option + .calc-option {
+  border-top: 1px solid var(--line);
+}
+.calc-option h2,
+.calc-option p,
+.calc-option .actions {
+  margin: 0;
+}
+.calc-option p {
   max-width: 900px;
+}
+.calc-option .small-note {
+  line-height: 1.6;
+}
+.calc-option > .button {
+  margin: 0;
 }
 .calc-status {
   white-space: pre-wrap;
@@ -270,7 +290,7 @@
     display: none;
   }
   .lesson-body,
-  .calc-launch {
+  .calc-option {
     padding: 18px;
   }
 }
@@ -279,12 +299,69 @@
 }
 .normalization-panel form {
   display: grid;
+  grid-template-columns: minmax(0, 560px) 240px;
   gap: 16px;
-  margin-top: 20px;
+  align-items: end;
+  margin-top: 24px;
 }
 .normalization-panel label {
   display: grid;
   gap: 8px;
+  min-width: 0;
+}
+.normalization-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+}
+.file-picker {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 44px;
+  padding: 4px;
+  border: 1px solid #dce3eb;
+  border-radius: 10px;
+  background: #fff;
+}
+.file-picker input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+.file-picker:focus-within {
+  border-color: #8aadd2;
+  background: #f7faff;
+}
+.file-picker-button {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  line-height: 22px;
+  border-radius: 6px;
+  background: #f1f4f9;
+}
+.file-picker:hover .file-picker-button {
+  background: #eaf3ff;
+}
+[data-file-summary] {
+  color: #596b7e;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+@media (max-width: 1100px) {
+  .normalization-panel form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .normalization-panel label:not(.normalization-files) {
+    max-width: 280px;
+  }
 }
 .normalization-panel pre {
   overflow-x: auto;
@@ -314,16 +391,6 @@
 .normalization-panel p,
 .environment-panel p {
   margin: 12px 0;
-}
-.normalization-panel input::file-selector-button {
-  border: 0;
-  border-radius: 8px;
-  padding: 8px 12px;
-  margin-right: 12px;
-  background: #eaf3ff;
-  color: #005ce6;
-  font: inherit;
-  cursor: pointer;
 }
 #ai-draft-form {
   display: grid;

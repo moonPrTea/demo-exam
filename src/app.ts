@@ -1,6 +1,7 @@
 import {query, errorMessage, html} from './dom.js';
 import {
   normalizationView,
+  updateNormalizationFiles,
   checkNormalizationForm,
 } from './normalization-view.js';
 import {environmentView} from './environment-view.js';
@@ -241,21 +242,12 @@ function shell(content: string) {
           <div>Полный экзамен<small>В планах</small></div>
           ${icon('lock')}
         </div>
-        <div class="sidebar-note">
-          ${icon('globe')}<strong>Твой темп. Твоя практика</strong>
-          <p>Данные и прогресс остаются на этом устройстве</p>
-          <span>Без аккаунта, Без сети</span>
-        </div>
         <div class="sidebar-footer">МОДУЛЬ 01 <span>v0.1</span></div>
       </aside>
       <div class="main-shell">
         <main id="main" tabindex="-1">
           ${storageWarning ? html`<div class="notice">${esc(storageWarning)}</div>` : ''}${content}
         </main>
-        <footer class="main-footer">
-          <span>Учимся понимать данные, а не запоминать ответы</span
-          ><span>FORMATTED / LEARNING LAB</span>
-        </footer>
       </div>
     </div>
     <dialog id="confirm-dialog">
@@ -409,44 +401,55 @@ function lessonView() {
       </section>
     </div>
     <section class="panel calc-launch">
-      <h2>Собственный редактор таблиц</h2>
-      <p>
-        Отдельное окно без LibreOffice, учебный пример с ИНДЕКС и ПОИСКПОЗ. Пока
-        без сохранения файлов
-      </p>
-      ${window.desktop ? button('open-sheets', 'Открыть редактор таблиц', 'secondary') : '<p>Редактор запускается из desktop-приложения</p>'}
-      <h2>Выполнить самостоятельно</h2>
-      <p>
-        Одна рабочая книга на все шаги. Импортируй source.csv и скопируй данные
-        на лист «Практика». Заполняй справочник и формулы сам, сохраняй книгу
-        перед проверкой
-      </p>
-      <div class="actions">
-        ${window.desktop ? button('calc-work', 'Открыть мою книгу', 'primary', calcBusy ? 'disabled' : '') + button('calc-check-work', 'Проверить этот шаг', 'secondary', calcBusy ? 'disabled' : '') : '<p>Рабочая книга и проверка доступны в desktop-приложении</p>'}
+      <div class="calc-option">
+        <h2>Редактор таблиц</h2>
+        <p>Учебная книга с ИНДЕКС и ПОИСКПОЗ, без установки LibreOffice</p>
+        ${window.desktop ? button('open-sheets', 'Открыть редактор таблиц', 'secondary') : '<p>Редактор запускается из desktop-приложения</p>'}
+        <p class="small-note">
+          Изменения пока хранятся только до закрытия окна
+        </p>
       </div>
-      <p class="small-note">
-        Можно сохранить как lesson.ods в той же папке. Для последнего шага
-        сохрани рядом products.csv и categories.csv, UTF-8, разделитель ;.
-        Исходный лист не меняй, рабочий лист сохраняй для проверки. На шагах с
-        формулами проверяются ИНДЕКС и ПОИСКПОЗ с обычными ссылками на ячейки
-      </p>
-      <h2>Посмотреть этот шаг в настоящем Calc</h2>
-      <p>
-        Python открывает учебную копию с выделенной ячейкой и листом
-        «Подсказка». Каждый шаг независимый: свои изменения сохраняй отдельно,
-        они не переносятся в следующий шаг
-      </p>
-      <div class="actions">
-        ${window.desktop ? button('open-calc', calcBusy ? 'Открываем…' : 'Открыть шаг в Calc', 'primary', calcBusy ? 'disabled' : '') + button('check-calc', 'Проверить Python и Calc', 'secondary', calcBusy ? 'disabled' : '') : '<span class="small-note">Открытие Calc доступно в desktop-приложении, не в браузерном превью</span>'}${button('lesson-source', 'Скачать исходный CSV', 'secondary')}
+      <div class="calc-option">
+        <h2>Выполнить самостоятельно</h2>
+        <p>
+          Одна рабочая книга на все шаги. Импортируй source.csv и скопируй
+          данные на лист «Практика». Заполняй справочник и формулы сам, сохраняй
+          книгу перед проверкой
+        </p>
+        <div class="actions">
+          ${window.desktop ? button('calc-work', 'Открыть мою книгу', 'primary', calcBusy ? 'disabled' : '') + button('calc-check-work', 'Проверить этот шаг', 'secondary', calcBusy ? 'disabled' : '') : '<p>Рабочая книга и проверка доступны в desktop-приложении</p>'}
+        </div>
+        <p class="small-note">
+          Можно сохранить как lesson.ods в той же папке. Для последнего шага
+          сохрани рядом products.csv и categories.csv, UTF-8, разделитель ;.
+          Исходный лист не меняй, рабочий лист сохраняй для проверки. На шагах с
+          формулами проверяются ИНДЕКС и ПОИСКПОЗ с обычными ссылками на ячейки
+        </p>
       </div>
-      <p class="calc-status" role="status" aria-live="polite">
-        ${esc(calcMessage)}
-      </p>
-      <p class="small-note">
-        Нужны Python 3.9+ и LibreOffice Calc. Урок не устанавливает программы,
-        не управляет мышью и не меняет открытые документы. В режиме на время
-        подсказки недоступны
-      </p>
+      <div class="calc-option">
+        <h2>Пример в LibreOffice Calc</h2>
+        <p>
+          Python открывает учебную копию с выделенной ячейкой и листом
+          «Подсказка». Каждый шаг независимый: свои изменения сохраняй отдельно,
+          они не переносятся в следующий шаг
+        </p>
+        <div class="actions">
+          ${window.desktop ? button('open-calc', calcBusy ? 'Открываем…' : 'Открыть шаг в Calc', 'primary', calcBusy ? 'disabled' : '') + button('check-calc', 'Проверить Python и Calc', 'secondary', calcBusy ? 'disabled' : '') : '<span class="small-note">Открытие Calc доступно в desktop-приложении, не в браузерном превью</span>'}${button('lesson-source', 'Скачать исходный CSV', 'secondary')}
+        </div>
+        <p
+          class="calc-status"
+          role="status"
+          aria-live="polite"
+          ${calcMessage ? '' : 'hidden'}
+        >
+          ${esc(calcMessage)}
+        </p>
+        <p class="small-note">
+          Нужны Python 3.9+ и LibreOffice Calc. Урок не устанавливает программы,
+          не управляет мышью и не меняет открытые документы. В режиме на время
+          подсказки недоступны
+        </p>
+      </div>
     </section>`;
 }
 
@@ -1878,6 +1881,13 @@ function formConfig(values: Record<string, FormDataEntryValue>) {
 
 document.addEventListener('change', async event => {
   const input = event.target;
+  if (
+    input instanceof HTMLInputElement &&
+    input.matches('#normalization-form [name=files]')
+  ) {
+    updateNormalizationFiles(input);
+    return;
+  }
   if (
     !(input instanceof HTMLInputElement) ||
     input.id !== 'variant-import' ||
