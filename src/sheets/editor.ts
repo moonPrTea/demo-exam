@@ -4,6 +4,7 @@ import {SheetSession} from './session.js';
 import {functionDialog} from './function-dialog.js';
 import {createRangePicker} from './range-picker.js';
 import {type WizardContext} from './wizard-model.js';
+import {cellEditor} from './cell-editor.js';
 
 import {words} from './labels.js';
 declare global {
@@ -39,6 +40,7 @@ function restoreCell(original: WizardContext) {
   render();
   formula.value = original.formula;
   draft = formula.value !== session.source(sheet, selected, language);
+  if (draft) editing.preview();
   cells.get(selected)?.scrollIntoView({
     block: 'nearest',
     inline: 'nearest',
@@ -85,7 +87,25 @@ function status(text: string) {
   query('#status').textContent = text;
   query('#status').title = text;
 }
+const editing = cellEditor(
+  formula,
+  () => cells.get(selected)!,
+  () => language,
+  () => {
+    draft = true;
+  },
+  tab => {
+    if (!commit()) return;
+    const column = Math.min(76, Math.max(65, selected.charCodeAt(0) + tab));
+    select(String.fromCharCode(column) + selected.slice(1));
+  },
+  () => {
+    render();
+    cells.get(selected)!.focus();
+  },
+);
 function render() {
+  editing.reset();
   for (const [key, cell] of cells) {
     const value = book.getValue(sheet, key);
     cell.textContent = isCellError(value) ? value.code : String(value ?? '');
@@ -138,11 +158,7 @@ function select(key: string) {
   } as ScrollIntoViewOptions);
 }
 function edit(replacement?: string) {
-  formula.focus();
-  if (replacement !== undefined) {
-    formula.value = replacement;
-    draft = true;
-  } else formula.select();
+  editing.start(replacement);
 }
 function addTab(name: string) {
   const button = document.createElement('button');
@@ -294,6 +310,7 @@ grid.addEventListener('dblclick', event => {
   if ((event.target as Element).closest('[data-cell]')) edit();
 });
 grid.addEventListener('keydown', event => {
+  if (event.target instanceof HTMLInputElement) return;
   if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey)
     return;
   const col = selected.charCodeAt(0) - 65;
