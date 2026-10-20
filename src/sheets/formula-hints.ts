@@ -53,7 +53,11 @@ export function formulaHint(
     args,
     argument: choices.length ? -1 : active!.argument,
     completion: choices.length
-      ? {start: caret - token!.length, end: caret, text: label + '('}
+      ? {
+          start: caret - token!.length,
+          end: caret + (text[caret] === '(' ? 1 : 0),
+          text: label + '(',
+        }
       : null,
   };
 }

@@ -134,7 +134,7 @@ function choose(name: string) {
       : `=${catalog.find(entry => entry.en === name)![context.language]}()`;
   preview();
 }
-expression.oninput = () => {
+function readSelection() {
   const parsed = readFunction(expression.value, context.language);
   if (parsed && parsed.args.length <= 3) {
     current = parsed.name;
@@ -152,7 +152,8 @@ expression.oninput = () => {
     if (item) describe(item.en);
   }
   preview();
-};
+}
+expression.oninput = readSelection;
 window.addEventListener('message', event => {
   if (
     initialized ||
@@ -176,18 +177,13 @@ window.addEventListener('message', event => {
   list = functionList(context.language, choose);
   for (const sheet of context.sheets) book.addSheet(sheet);
   book.setCells(context.cells);
-  const parsed = readFunction(context.formula, context.language);
-  if (parsed && parsed.args.length <= 3) {
-    current = parsed.name;
-    drafts[current] = [0, 1, 2].map(i => parsed.args[i] ?? '');
-  }
   expression.value = context.formula.startsWith('=')
     ? context.formula
     : buildFunction(current, drafts[current], context.language);
   fields();
   selected = current;
   list(selected);
-  preview();
+  readSelection();
   query('main').removeAttribute('inert');
   query('#search').focus();
 });

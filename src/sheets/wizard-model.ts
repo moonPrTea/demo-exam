@@ -48,12 +48,47 @@ export interface WizardContext {
 }
 export function readFunction(source: string, language: FormulaLanguage) {
   const expression = parseFormula(source);
-  if (expression.kind !== 'call' || !Object.hasOwn(functions, expression.name))
-    return null;
-  return {
-    name: expression.name as FunctionName,
-    args: expression.args.map(arg => formatExpression(arg, language).slice(1)),
-  };
+  if (expression.kind === 'call' && Object.hasOwn(functions, expression.name))
+    return {
+      name: expression.name as FunctionName,
+      args: expression.args.map(arg =>
+        formatExpression(arg, language).slice(1),
+      ),
+    };
+  // Keep unfinished arguments editable; opening the wizard must not erase a draft.
+  const head = /^=\s*(INDEX|MATCH|ИНДЕКС|ПОИСКПОЗ)\s*(\(|$)/iu.exec(source);
+  if (!head || source.length > 4096) return null;
+  const alias = head[1].toUpperCase();
+  const name: FunctionName =
+    alias === 'INDEX' || alias === 'ИНДЕКС' ? 'INDEX' : 'MATCH';
+  const args: string[] = [];
+  let start = head[0].length;
+  let depth = 0;
+  let quote = '';
+  for (let i = start; i < source.length; i++) {
+    const char = source[i];
+    if (quote) {
+      if (char === quote) {
+        if (source[i + 1] === quote) i++;
+        else quote = '';
+      }
+    } else if (char === '"' || char === "'") quote = char;
+    else if (char === '(') depth++;
+    else if (char === ')') {
+      if (depth) depth--;
+      else {
+        if (source.slice(i + 1).trim()) return null;
+        args.push(source.slice(start, i).trim());
+        return {name, args};
+      }
+    } else if (char === ';' && depth === 0) {
+      args.push(source.slice(start, i).trim());
+      start = i + 1;
+    }
+  }
+  if (start < source.length || args.length)
+    args.push(source.slice(start).trim());
+  return {name, args};
 }
 export function buildFunction(
   name: FunctionName,
