@@ -7,6 +7,8 @@ import {type WizardContext} from './wizard-model.js';
 import {cellEditor} from './cell-editor.js';
 import {gridSelection} from './grid-selection.js';
 import {rangeTransfer} from './transfer.js';
+import {errorExplanation} from './error-messages.js';
+import {errorTooltip} from './error-tooltip.js';
 
 import {words} from './labels.js';
 declare global {
@@ -124,11 +126,20 @@ const editing = cellEditor(
   },
 );
 const selection = gridSelection(grid, selected, select);
+const errors = errorTooltip(grid);
 function render() {
+  errors.hide();
   editing.reset();
   for (const [key, cell] of cells) {
     const value = book.getValue(sheet, key);
     cell.textContent = isCellError(value) ? value.code : String(value ?? '');
+    if (isCellError(value)) {
+      cell.dataset.error = errorExplanation(value.code, language);
+      cell.setAttribute('aria-description', cell.dataset.error);
+    } else {
+      delete cell.dataset.error;
+      cell.removeAttribute('aria-description');
+    }
     cell.classList.toggle('number', typeof value === 'number');
     cell.tabIndex = key === selected ? 0 : -1;
     cell.setAttribute('aria-selected', String(key === selected));

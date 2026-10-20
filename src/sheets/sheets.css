@@ -235,6 +235,33 @@ td.number {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
+td[data-error]::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  border-top: 5px solid #68707d;
+  border-left: 5px solid transparent;
+}
+#cell-error-tooltip {
+  position: fixed;
+  z-index: 7;
+  width: min(360px, calc(100vw - 16px));
+  max-height: calc(100vh - 16px);
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid #e5e6e8;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 3px 10px #00000014;
+  overflow-wrap: anywhere;
+}
+#cell-error-tooltip strong {
+  font-weight: 600;
+}
+#cell-error-tooltip p {
+  margin: 6px 0 0;
+}
 .picking-range {
   cursor: crosshair;
   user-select: none;
