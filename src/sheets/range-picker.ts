@@ -19,6 +19,8 @@ export function createRangePicker(grid: HTMLElement, sheet: () => string) {
   let frame = 0;
   let x = 0;
   let y = 0;
+  let freeKeys = false;
+  let suppressClick = false;
   const viewport = grid.parentElement!;
   const clear = () =>
     grid
@@ -71,6 +73,7 @@ export function createRangePicker(grid: HTMLElement, sheet: () => string) {
   grid.addEventListener(
     'pointerdown',
     event => {
+      suppressClick = false;
       if (!finish || event.button !== 0 || pointer !== -1) return;
       const hit = (event.target as Element).closest<HTMLElement>('[data-cell]');
       if (!hit) return;
@@ -104,6 +107,7 @@ export function createRangePicker(grid: HTMLElement, sheet: () => string) {
       update();
       const done = finish;
       const reference = rangeReference(sheet(), anchor, end);
+      suppressClick = true;
       stop();
       done(reference);
     },
@@ -123,7 +127,8 @@ export function createRangePicker(grid: HTMLElement, sheet: () => string) {
   grid.addEventListener(
     'click',
     event => {
-      if (finish) {
+      if (finish || (suppressClick && event.isTrusted)) {
+        suppressClick = false;
         event.preventDefault();
         event.stopImmediatePropagation();
       }
@@ -133,7 +138,7 @@ export function createRangePicker(grid: HTMLElement, sheet: () => string) {
   document.addEventListener(
     'keydown',
     event => {
-      if (!finish) return;
+      if (!finish || (freeKeys && event.key !== 'Escape')) return;
       if (event.key === 'Tab') return;
       if (
         (event.target as Element).closest('[data-sheet]') &&
@@ -149,7 +154,7 @@ export function createRangePicker(grid: HTMLElement, sheet: () => string) {
   grid.addEventListener(
     'paste',
     event => {
-      if (finish) {
+      if (finish && !freeKeys) {
         event.preventDefault();
         event.stopImmediatePropagation();
       }
@@ -160,9 +165,10 @@ export function createRangePicker(grid: HTMLElement, sheet: () => string) {
     get active() {
       return finish !== null;
     },
-    start(done: (reference: string | null) => void) {
+    start(done: (reference: string | null) => void, allowKeys = false) {
       stop();
       finish = done;
+      freeKeys = allowKeys;
       grid.classList.add('picking-range');
       return stop;
     },

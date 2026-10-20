@@ -5,6 +5,8 @@ import {functionDialog} from './function-dialog.js';
 import {createRangePicker} from './range-picker.js';
 import {type WizardContext} from './wizard-model.js';
 import {cellEditor} from './cell-editor.js';
+import {gridSelection} from './grid-selection.js';
+import {rangeTransfer} from './transfer.js';
 
 import {words} from './labels.js';
 declare global {
@@ -24,6 +26,7 @@ const session = new SheetSession(
   blank ? (language === 'ru' ? 'Лист1' : 'Sheet1') : undefined,
 );
 const book = session.book;
+const transfer = rangeTransfer(session);
 let sheet = blank ? book.getSheetNames()[0] : 'Практика';
 let selected = blank ? 'A1' : 'H2';
 const selections = new Map<string, string>();
@@ -34,6 +37,19 @@ const grid = query<HTMLTableElement>('#grid');
 const options = query<HTMLDetailsElement>('#options');
 const cells = new Map<string, HTMLTableCellElement>();
 const rangePicker = createRangePicker(grid, () => sheet);
+let referenceHome: {sheet: string; address: string} | null = null;
+const returnToReference = () => {
+  if (!referenceHome) return;
+  const original = {
+    language,
+    ...referenceHome,
+    formula: formula.value,
+    sheets: [],
+    cells: [],
+  };
+  referenceHome = null;
+  restoreCell(original);
+};
 function restoreCell(original: WizardContext) {
   sheet = original.sheet;
   selected = original.address;
@@ -49,7 +65,10 @@ function restoreCell(original: WizardContext) {
 }
 query('#function-wizard').onclick = functionDialog(
   book,
-  () => ({language, sheet, address: selected, formula: formula.value}),
+  () => {
+    returnToReference();
+    return {language, sheet, address: selected, formula: formula.value};
+  },
   (value, original) => {
     restoreCell(original);
     formula.value = value;
@@ -104,6 +123,7 @@ const editing = cellEditor(
     cells.get(selected)!.focus();
   },
 );
+const selection = gridSelection(grid, selected, select);
 function render() {
   editing.reset();
   for (const [key, cell] of cells) {
@@ -133,8 +153,10 @@ function render() {
       ),
     );
   status(words[language].ready);
+  selection.paint();
 }
 function commit() {
+  returnToReference();
   if (!draft) return true;
   try {
     session.write(sheet, selected, formula.value);
@@ -147,8 +169,9 @@ function commit() {
   }
 }
 function select(key: string) {
-  if (!cells.has(key) || !commit()) return;
+  if (!cells.has(key) || !commit()) return false;
   selected = key;
+  selection.reset(key);
   render();
   cells.get(key)!.focus({preventScroll: true});
   cells.get(key)!.scrollIntoView({
@@ -156,6 +179,7 @@ function select(key: string) {
     inline: 'nearest',
     container: 'nearest',
   } as ScrollIntoViewOptions);
+  return true;
 }
 function edit(replacement?: string) {
   editing.start(replacement);
@@ -170,6 +194,17 @@ function addTab(name: string) {
       sheet = name;
       render();
       status(words[language].pickRange);
+      return;
+    }
+    if (referenceHome || editing.reference()) {
+      const text = formula.value;
+      referenceHome ??= {sheet, address: selected};
+      sheet = name;
+      render();
+      formula.value = text;
+      formula.focus();
+      formula.setSelectionRange(text.length, text.length);
+      draft = true;
       return;
     }
     if (commit()) {
@@ -306,6 +341,46 @@ grid.addEventListener('click', event => {
   const cell = (event.target as Element).closest<HTMLElement>('[data-cell]');
   if (cell) select(cell.dataset.cell!);
 });
+grid.parentElement!.addEventListener(
+  'pointerdown',
+  event => {
+    if (
+      rangePicker.active ||
+      document.body.inert ||
+      event.button !== 0 ||
+      event.target instanceof HTMLInputElement ||
+      !(event.target as Element).closest('[data-cell]')
+    )
+      return;
+    const slot = editing.reference();
+    if (!slot) return;
+    const original = {
+      language,
+      sheet: referenceHome?.sheet ?? sheet,
+      address: referenceHome?.address ?? selected,
+      formula: formula.value,
+      sheets: [],
+      cells: [],
+    };
+    rangePicker.start(reference => {
+      const sourceSheet = sheet;
+      referenceHome = null;
+      restoreCell(original);
+      if (reference) {
+        const split = reference.lastIndexOf("'.") + 2;
+        editing.insertReference(
+          slot,
+          (sourceSheet === original.sheet ? '' : reference.slice(0, split)) +
+            reference.slice(split).replaceAll('$', ''),
+        );
+      } else {
+        formula.focus();
+        formula.setSelectionRange(slot.start, slot.end);
+      }
+    }, true);
+  },
+  true,
+);
 grid.addEventListener('dblclick', event => {
   if ((event.target as Element).closest('[data-cell]')) edit();
 });
@@ -325,31 +400,49 @@ grid.addEventListener('keydown', event => {
   if (moves[event.key]) {
     event.preventDefault();
     const [c, r] = moves[event.key];
+    if (event.shiftKey && event.key.startsWith('Arrow')) {
+      selection.move(c - col, r - row);
+      return;
+    }
     select(
       `${String.fromCharCode(65 + Math.min(11, Math.max(0, c)))}${Math.min(100, Math.max(1, r))}`,
     );
   } else if (['Delete', 'Backspace'].includes(event.key)) {
     event.preventDefault();
-    edit('');
-    commit();
+    transfer.clear(sheet, selection.range);
+    render();
     cells.get(selected)!.focus();
   } else if (event.key === 'F2' || event.key.length === 1) {
     event.preventDefault();
     edit(event.key === 'F2' ? undefined : event.key);
   }
 });
-formula.addEventListener('input', () => {
-  draft = true;
-});
+// cellEditor synchronizes both inputs and reports each change once.
 grid.addEventListener('paste', event => {
-  const value = event.clipboardData?.getData('text/plain') ?? '';
+  if (!event.clipboardData) return;
   event.preventDefault();
-  if (/[\t\r\n]/.test(value)) status(words[language].paste);
-  else {
-    edit(value);
-    commit();
+  try {
+    transfer.paste(sheet, selected, event.clipboardData, false);
+    render();
+  } catch (error) {
+    status(String(error));
   }
 });
+grid.addEventListener('copy', event => {
+  if (event.target instanceof HTMLInputElement || !event.clipboardData) return;
+  event.preventDefault();
+  transfer.copy(sheet, selection.range, event.clipboardData);
+});
+for (const action of ['fill', 'values'] as const)
+  query(`#range-${action}`).onclick = () => {
+    if (rangePicker.active || !commit()) return;
+    try {
+      transfer[action](sheet, selection.range);
+      render();
+    } catch (error) {
+      status(String(error));
+    }
+  };
 formula.addEventListener('keydown', event => {
   if (event.key === 'Enter' && !event.isComposing) {
     event.preventDefault();
@@ -424,6 +517,7 @@ document.addEventListener('keydown', event => {
   if (document.body.inert || sheetDialog.open) return;
   if (event.isComposing) return;
   if (event.key === 'Escape') {
+    returnToReference();
     if (options.open) {
       options.open = false;
       query('summary').focus();

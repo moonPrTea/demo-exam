@@ -1,5 +1,7 @@
 export const words = {
   ru: {
+    fill: 'Заполнить вниз',
+    values: 'Оставить значения',
     renameSheet: 'Переименовать лист',
     deleteSheet: 'Удалить лист',
     sheetName: 'Название листа',
@@ -26,6 +28,8 @@ export const words = {
     paste: 'Пока поддерживается вставка только одной ячейки',
   },
   en: {
+    fill: 'Fill down',
+    values: 'Keep values',
     renameSheet: 'Rename sheet',
     deleteSheet: 'Delete sheet',
     sheetName: 'Sheet name',

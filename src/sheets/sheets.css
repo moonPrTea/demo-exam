@@ -1,4 +1,6 @@
 :root {
+  --cell-selection: #eff6ff;
+  --cell-selection-edge: #3b82f6;
   color-scheme: light;
   font:
     13px/1.4 -apple-system,
@@ -166,7 +168,7 @@ td {
   inset: 0;
   width: 100%;
   height: 100%;
-  border: 2px solid #526c7c;
+  border: 2px solid var(--cell-selection-edge);
   border-radius: 0;
   padding: 1px 4px;
   text-align: left;
@@ -216,8 +218,18 @@ td {
   scroll-margin-left: 44px;
 }
 td[aria-selected='true'] {
-  box-shadow: inset 0 0 0 2px #526c7c;
-  background: #f3f6f8;
+  box-shadow: inset 0 0 0 2px var(--cell-selection-edge);
+  background: var(--cell-selection);
+  outline: none;
+}
+td.selected-range {
+  background: var(--cell-selection);
+}
+#formula-hint {
+  pointer-events: none;
+}
+#formula-hint button {
+  pointer-events: auto;
 }
 td.number {
   text-align: right;
@@ -232,8 +244,8 @@ td.number {
   box-shadow: none;
 }
 td.range-cell {
-  background: #e2edf5;
-  box-shadow: inset 0 0 0 1px #526c7c;
+  background: var(--cell-selection);
+  box-shadow: inset 0 0 0 1px var(--cell-selection-edge);
 }
 #sheet-dialog {
   width: min(420px, calc(100vw - 48px));

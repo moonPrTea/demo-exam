@@ -98,7 +98,21 @@ export function cellEditor(
       source = field;
       suggest();
     });
-    field.addEventListener('keyup', () => {
+    field.addEventListener('keyup', event => {
+      // Input events already refresh hints. Layout keys do not move the caret.
+      if (
+        composing ||
+        event.isComposing ||
+        ![
+          'ArrowLeft',
+          'ArrowRight',
+          'Home',
+          'End',
+          'ArrowUp',
+          'ArrowDown',
+        ].includes(event.key)
+      )
+        return;
       source = field;
       suggest();
     });
@@ -147,6 +161,45 @@ export function cellEditor(
   cell().closest('#grid-scroll')?.addEventListener('scroll', hide);
   window.addEventListener('resize', hide);
   return {
+    reference() {
+      const field = input.isConnected && source === input ? input : formula;
+      const start = field.selectionStart ?? field.value.length;
+      const end = field.selectionEnd ?? start;
+      const prefix = field.value.slice(0, start);
+      let quote = '';
+      for (let i = 1; i < prefix.length; i++) {
+        if (quote && prefix[i] === quote && prefix[i + 1] === quote) {
+          i++;
+          continue;
+        }
+        if (prefix[i] === quote) quote = '';
+        else if (!quote && /["']/.test(prefix[i])) quote = prefix[i];
+      }
+      if (
+        !field.value.startsWith('=') ||
+        quote ||
+        !/[=;(+\-*/]\s*$/.test(prefix)
+      )
+        return null;
+      return {value: field.value, start, end, inline: field === input};
+    },
+    insertReference(
+      slot: {value: string; start: number; end: number; inline: boolean},
+      reference: string,
+    ) {
+      formula.value =
+        slot.value.slice(0, slot.start) +
+        reference +
+        slot.value.slice(slot.end);
+      if (slot.inline) this.start(formula.value);
+      const field = slot.inline ? input : formula;
+      field.focus();
+      field.setSelectionRange(
+        slot.start + reference.length,
+        slot.start + reference.length,
+      );
+      sync(field);
+    },
     preview() {
       cell().append(input);
       input.value = formula.value;

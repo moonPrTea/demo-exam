@@ -50,6 +50,25 @@ async function run() {
     false,
   );
   await key('Tab');
+  const shortcutMutations = await evaluate(`(async () => {
+    const field = document.activeElement;
+    const popup = document.querySelector('#formula-hint');
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const mutations = [];
+    const observer = new MutationObserver(records => mutations.push(...records));
+    observer.observe(popup, {subtree: true, childList: true, attributes: true});
+    for (const key of ['Control', 'Shift', 'Alt', 'Meta', 'CapsLock', 'Fn', ' ']) {
+      const options = {key, bubbles: true, cancelable: true, ctrlKey: key === ' '};
+      const down = new KeyboardEvent('keydown', options);
+      field.dispatchEvent(down);
+      if (down.defaultPrevented) throw new Error('Layout shortcut was intercepted');
+      field.dispatchEvent(new KeyboardEvent('keyup', options));
+    }
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    observer.disconnect();
+    return mutations.length;
+  })()`);
+  assert.equal(shortcutMutations, 0, 'Layout keys must not rebuild hints');
   assert.equal(
     await evaluate('document.querySelector("#cell-editor").value'),
     '=ИНДЕКС(',
@@ -131,6 +150,126 @@ async function run() {
     '2. Formula bar synchronization, mouse completion, narrow layouts and 200% zoom',
   );
   console.log('Screenshots:', directory);
+  window.webContents.debugger.attach('1.3');
+  const drag = async (from, to, cancel = false) => {
+    const point = cell =>
+      evaluate(
+        `(() => {const r=document.querySelector('[data-cell="${cell}"]').getBoundingClientRect(); return {x:r.x+r.width/2,y:r.y+r.height/2};})()`,
+      );
+    await evaluate(
+      'document.querySelector("#grid-scroll").scrollLeft=0;document.querySelector("#grid-scroll").scrollTop=0',
+    );
+    const a = await point(from),
+      b = await point(to);
+    for (const [type, p, buttons] of [
+      ['mouseMoved', a, 0],
+      ['mousePressed', a, 1],
+      ['mouseMoved', b, 1],
+      ['mouseReleased', b, 0],
+    ]) {
+      if (cancel && type === 'mouseReleased') await key('Escape');
+      await window.webContents.debugger.sendCommand(
+        'Input.dispatchMouseEvent',
+        {type, ...p, button: 'left', buttons, clickCount: 1},
+      );
+    }
+    await evaluate('new Promise(resolve => requestAnimationFrame(resolve))');
+  };
+  await click('[data-cell="J3"]');
+  await key('=');
+  await type('ИНДЕКС(');
+  await click('[data-sheet="Категории"]');
+  await drag('A2', 'A4');
+  assert.equal(
+    await evaluate('document.querySelector("#selection").textContent'),
+    'Практика, J3',
+  );
+  assert.equal(
+    await evaluate('document.querySelector("#formula").value'),
+    "=ИНДЕКС('Категории'.A2:A4",
+  );
+  await type(';2)');
+  await key('Enter');
+  assert.equal(
+    await evaluate('document.querySelector("[data-cell=J3]").textContent'),
+    '25',
+  );
+  await click('[data-cell="J4"]');
+  await key('=');
+  await drag('G2', 'G2');
+  assert.equal(
+    await evaluate('document.querySelector("#cell-editor").value'),
+    '=G2',
+  );
+  await key('Enter');
+  assert.equal(
+    await evaluate('document.querySelector("[data-cell=J4]").textContent'),
+    '3',
+  );
+  console.log(
+    '3. Direct cell and range references preserve the formula target across sheets',
+  );
+  await click('[data-cell="J5"]');
+  await key('=');
+  await type('ИНДЕКС(');
+  await drag('A2', 'A4', true);
+  assert.equal(
+    await evaluate('document.querySelector("#formula").value'),
+    '=ИНДЕКС(',
+  );
+  assert.equal(
+    await evaluate('document.querySelector("#selection").textContent'),
+    'Практика, J5',
+  );
+  assert.equal(
+    await evaluate('document.querySelectorAll(".range-cell").length'),
+    0,
+  );
+  await key('Escape');
+  await click('[data-cell="A10"]');
+  await evaluate(
+    `window.clip = new DataTransfer(); window.clip.setData('text/plain',${JSON.stringify('00123\t2\ntext\t4')}); document.activeElement.dispatchEvent(new ClipboardEvent('paste',{bubbles:true,clipboardData:window.clip}));`,
+  );
+  await key('Right', ['shift']);
+  await key('Down', ['shift']);
+  assert.equal(
+    await evaluate('document.querySelectorAll(".selected-range").length'),
+    4,
+  );
+  await evaluate(
+    `window.clip = new DataTransfer(); document.activeElement.dispatchEvent(new ClipboardEvent('copy',{bubbles:true,clipboardData:window.clip}));`,
+  );
+  await click('[data-cell="F10"]');
+  await evaluate(
+    `document.activeElement.dispatchEvent(new ClipboardEvent('paste',{bubbles:true,clipboardData:window.clip}));`,
+  );
+  assert.equal(
+    await evaluate('document.querySelector("[data-cell=F10]").textContent'),
+    '00123',
+  );
+  assert.equal(
+    await evaluate('document.querySelector("[data-cell=G11]").textContent'),
+    '4',
+  );
+  await click('#undo');
+  assert.equal(
+    await evaluate('document.querySelector("[data-cell=G11]").textContent'),
+    '',
+  );
+  await drag('G2', 'G4');
+  assert.equal(
+    await evaluate('document.querySelectorAll(".selected-range").length'),
+    3,
+  );
+  await click('#range-fill');
+  assert.match(
+    await evaluate('document.querySelector("[data-cell=G4]").textContent'),
+    /^3$/,
+  );
+  console.log(
+    '4. Shift and pointer selection, rectangular paste, copy, fill and batch undo',
+  );
+  window.webContents.debugger.detach();
   app.exit(0);
 }
 setTimeout(() => app.exit(1), 60000);

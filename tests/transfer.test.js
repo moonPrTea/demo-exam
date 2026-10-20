@@ -31,6 +31,11 @@ test('range paste is atomic, preserves literals and formulas, and undoes as one 
   const session = new SheetSession('Data');
   const transfer = rangeTransfer(session);
   const data = clipboard();
+  data.setData('text/plain', 'hello "world"\t="yes"');
+  transfer.paste('Data', 'A1', data, false);
+  assert.equal(session.book.getValue('Data', 'A1'), 'hello "world"');
+  assert.equal(session.book.getValue('Data', 'B1'), 'yes');
+  session.undo();
   data.setData('text/plain', '00123\t=1+2\r\ntext\t4');
   transfer.paste('Data', 'A1', data, false);
   assert.equal(session.book.getValue('Data', 'A1'), '00123');

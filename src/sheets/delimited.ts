@@ -34,7 +34,8 @@ export function readDelimited(source: string, delimiter: string): string[][] {
       row = [];
     } else if (char === '"' && !value && !closed) quoted = true;
     else {
-      if (closed || char === '"') throw new Error('Invalid quoting');
+      if (closed || (char === '"' && delimiter !== '\t'))
+        throw new Error('Invalid quoting');
       value += char;
     }
   }
