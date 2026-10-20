@@ -1,5 +1,6 @@
 export interface DatabaseStep {
   title: string;
+  tags: string[];
   goal: string;
   tasks: string[];
   question: string;
@@ -12,6 +13,7 @@ export interface DatabaseStep {
 export const databaseSteps: DatabaseStep[] = [
   {
     title: 'База и типы данных',
+    tags: ['CREATE DATABASE', 'text', 'numeric'],
     goal: 'Подготовить отдельную учебную БД, не затрагивая рабочие данные',
     tasks: [
       'В pgAdmin подключись к локальному PostgreSQL и открой Query Tool для служебной базы postgres',
@@ -28,6 +30,7 @@ export const databaseSteps: DatabaseStep[] = [
   },
   {
     title: 'Таблицы и первичные ключи',
+    tags: ['PRIMARY KEY', 'NOT NULL', 'UNIQUE', 'CHECK'],
     goal: 'Описать структуру двух таблиц самостоятельно',
     tasks: [
       'Напиши CREATE TABLE для categories и products. Сначала создавай справочник',
@@ -48,6 +51,7 @@ export const databaseSteps: DatabaseStep[] = [
   },
   {
     title: 'Внешние ключи',
+    tags: ['FOREIGN KEY', 'REFERENCES', 'RESTRICT'],
     goal: 'Связать товар с существующей категорией',
     tasks: [
       'Добавь FK из products.category_id в categories.category_id через ALTER TABLE',
@@ -69,6 +73,7 @@ export const databaseSteps: DatabaseStep[] = [
   },
   {
     title: 'Импорт нормализованных CSV',
+    tags: ['CSV', 'UTF-8', 'Импорт'],
     goal: 'Перенести очищенные данные и проверить результат',
     tasks: [
       'Подготовь CSV под созданные столбцы: категории 10 и 25, товары 00101 и 00108 со ссылками на эти категории. Добавь каждому товару цену',
@@ -91,6 +96,7 @@ export const databaseSteps: DatabaseStep[] = [
   },
   {
     title: 'Выборки и сверка',
+    tags: ['JOIN', 'WHERE', 'GROUP BY', 'ORDER BY'],
     goal: 'Получить результат из нескольких связанных таблиц',
     tasks: [
       'Напиши JOIN, который выводит код товара, его название, название категории и цену',
@@ -113,6 +119,7 @@ export const databaseSteps: DatabaseStep[] = [
   },
   {
     title: 'Транзакции и триггеры',
+    tags: ['BEGIN', 'ROLLBACK', 'TRIGGER', 'OLD / NEW'],
     goal: 'Разделять ограничения данных и автоматические действия',
     tasks: [
       'В учебной БД выполни BEGIN, измени цену товара и ROLLBACK. Проверь, что цена вернулась',

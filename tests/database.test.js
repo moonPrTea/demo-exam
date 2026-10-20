@@ -9,6 +9,8 @@ test('Database lesson has six bounded knowledge checks, sources and no automatic
   assert.equal(databaseSteps.length, 6);
   for (const step of databaseSteps) {
     assert.equal(step.tasks.length, 3);
+    assert.ok(step.tags.length >= 3 && step.tags.length <= 4);
+    assert.equal(new Set(step.tags).size, step.tags.length);
     assert.ok(step.correct >= 0 && step.correct < step.answers.length);
     assert.ok(
       step.source.startsWith('https://www.postgresql.org/') ||
