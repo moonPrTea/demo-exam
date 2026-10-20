@@ -108,12 +108,14 @@
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr);
   gap: 24px;
-  align-items: start;
+  align-items: stretch;
 }
 .lesson-nav {
   padding: 12px;
   display: grid;
   gap: 4px;
+  align-content: start;
+  min-width: 0;
 }
 .lesson-step {
   display: flex;
@@ -272,6 +274,7 @@
   }
   .lesson-nav {
     display: flex;
+    flex-direction: row;
     overflow-x: auto;
   }
   .lesson-step {
@@ -411,4 +414,89 @@
   color: #22272b;
   font: inherit;
   resize: vertical;
+}
+.module-link {
+  width: 100%;
+  border: 0;
+  text-align: left;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.module-link:hover,
+.module-link[aria-current='page'] {
+  background: #edf5ff;
+}
+.database-content {
+  min-width: 0;
+  display: grid;
+  gap: 20px;
+  padding: 28px;
+}
+.database-content h2,
+.database-content p {
+  margin: 0;
+}
+.database-content ol {
+  margin: 0;
+  padding-left: 24px;
+}
+.database-content li + li {
+  margin-top: 12px;
+}
+.database-content textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 160px;
+  font:
+    14px/1.6 ui-monospace,
+    monospace;
+  padding: 16px;
+  border: 1px solid #d7dfe8;
+  border-radius: 8px;
+  background: #fafbfc;
+  color: #22272b;
+}
+.database-content fieldset {
+  display: grid;
+  gap: 12px;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.database-content legend {
+  margin-bottom: 16px;
+}
+.database-content fieldset label {
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  align-items: baseline;
+}
+.database-content input[type='radio'] {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  flex-shrink: 0;
+}
+.database-content .muted {
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+.database-navigation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 20px;
+  border-top: 1px solid #e2e7ed;
+}
+#database-download {
+  justify-self: start;
+}
+#database-title {
+  scroll-margin-top: 80px;
 }

@@ -5,6 +5,7 @@ import {
   checkNormalizationForm,
 } from './normalization-view.js';
 import {environmentView} from './environment-view.js';
+import {databaseView, mountDatabase} from './database-view.js';
 import type {
   AppState,
   AiTheme,
@@ -128,6 +129,7 @@ const label: Record<View, string> = {
   practice: 'На время',
   history: 'Мой прогресс',
   lesson: 'Разбор CSV в Calc',
+  database: 'Базы данных',
 };
 const navigation: View[] = [];
 let navigationIndex = -1;
@@ -193,6 +195,7 @@ function shell(content: string) {
     ['practice', 'clock'],
     ['history', 'chart'],
   ];
+  const railNav: [View, string][] = [...nav, ['database', 'database']];
   return html`${windowBar()}
     <div class="layout ${sidebarCollapsed ? 'sidebar-collapsed' : ''}">
       <aside class="rail">
@@ -200,7 +203,7 @@ function shell(content: string) {
           ><img class="brand-logo" src="assets/forma.svg" alt=""
         /></a>
         <div class="rail-nav">
-          ${nav.map(([id, glyph]) => html`<button class="rail-button ${state.view === id ? 'active' : ''}" data-view="${id}" aria-label="${label[id]}" title="${label[id]}">${icon(glyph)}</button>`).join('')}
+          ${railNav.map(([id, glyph]) => html`<button class="rail-button ${state.view === id ? 'active' : ''}" data-view="${id}" aria-label="${label[id]}" title="${label[id]}">${icon(glyph)}</button>`).join('')}
         </div>
         <div class="rail-bottom">
           <span class="connection-dot" title="Локальная работа"></span>
@@ -227,11 +230,14 @@ function shell(content: string) {
           <div>Данные и нормализация<small>Текущий модуль</small></div>
           <span class="live-dot"></span>
         </div>
-        <div class="module-row muted">
+        <button
+          class="module-row module-link"
+          data-view="database"
+          ${state.view === 'database' ? 'aria-current="page"' : ''}
+        >
           <span class="module-index">02</span>
-          <div>Базы данных<small>В планах</small></div>
-          ${icon('lock')}
-        </div>
+          <span>Базы данных<small>Практикум PostgreSQL</small></span>
+        </button>
         <div class="module-row muted">
           <span class="module-index">03</span>
           <div>C# и WinForms<small>В планах</small></div>
@@ -242,7 +248,9 @@ function shell(content: string) {
           <div>Полный экзамен<small>В планах</small></div>
           ${icon('lock')}
         </div>
-        <div class="sidebar-footer">МОДУЛЬ 01 <span>v0.1</span></div>
+        <div class="sidebar-footer">
+          МОДУЛЬ ${state.view === 'database' ? '02' : '01'} <span>v0.1</span>
+        </div>
       </aside>
       <div class="main-shell">
         <main id="main" tabindex="-1">
@@ -1447,7 +1455,7 @@ function history() {
 function render() {
   closeSelectMenu();
   if (!label[state.view]) state.view = 'home';
-  if (active() && (state.view === 'lesson' || state.view === 'quiz'))
+  if (active() && ['lesson', 'quiz', 'database'].includes(state.view))
     state.view = 'practice';
   if (navigation[navigationIndex] !== state.view) {
     navigation.splice(navigationIndex + 1);
@@ -1455,12 +1463,19 @@ function render() {
     navigationIndex = navigation.length - 1;
   }
   query('#app').innerHTML = shell(
-    {home, generator, quiz: quizView, practice, history, lesson: lessonView}[
-      state.view
-    ](),
+    {
+      home,
+      generator,
+      quiz: quizView,
+      practice,
+      history,
+      lesson: lessonView,
+      database: databaseView,
+    }[state.view](),
   );
   enhanceSelects(query('#app'));
   enhanceNumbers(query('#app'));
+  if (state.view === 'database') mountDatabase();
 }
 
 function complete() {
@@ -1519,7 +1534,10 @@ document.addEventListener('click', async event => {
       return;
     }
     if (target.dataset.view) {
-      if (active() && ['quiz', 'lesson'].includes(target.dataset.view)) {
+      if (
+        active() &&
+        ['quiz', 'lesson', 'database'].includes(target.dataset.view)
+      ) {
         toast('Блиц и подсказки доступны после завершения попытки.');
         return;
       }

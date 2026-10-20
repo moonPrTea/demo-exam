@@ -130,7 +130,13 @@ export interface PracticeSession {
 }
 
 export type View =
-  'home' | 'quiz' | 'generator' | 'practice' | 'history' | 'lesson';
+  | 'home'
+  | 'quiz'
+  | 'generator'
+  | 'practice'
+  | 'history'
+  | 'lesson'
+  | 'database';
 
 export interface AppState {
   version: 1;
