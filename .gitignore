@@ -45,3 +45,7 @@ models/
 .npmrc
 __pycache__/
 *.pyc
+
+# Project-local .NET SDK and NuGet cache for Studio
+.tools/
+.nuget/

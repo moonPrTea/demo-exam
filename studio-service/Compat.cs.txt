@@ -1,0 +1,231 @@
+// A deliberately limited Mac teaching runtime. Windows export uses real WinForms.
+namespace System.Windows.Forms
+{
+    using System;
+    using System.Collections.Generic;
+    using System.Drawing;
+    using System.Linq;
+    using System.Text.Json;
+
+    public enum DialogResult { None, OK, Cancel, Abort, Retry, Ignore, Yes, No }
+    public enum MessageBoxButtons { OK, OKCancel, YesNo, YesNoCancel }
+    public enum MessageBoxIcon { None, Error, Question, Warning, Information }
+    public enum FormStartPosition { Manual, CenterScreen, CenterParent, WindowsDefaultLocation, WindowsDefaultBounds }
+    public enum DockStyle { None, Top, Bottom, Left, Right, Fill }
+    public enum ComboBoxStyle { Simple, DropDown, DropDownList }
+    public enum CloseReason { None, WindowsShutDown, MdiFormClosing, UserClosing, TaskManagerClosing, FormOwnerClosing, ApplicationExitCall }
+    public class FormClosingEventArgs : System.ComponentModel.CancelEventArgs
+    {
+        public CloseReason CloseReason { get; }
+        public FormClosingEventArgs(CloseReason closeReason, bool cancel) : base(cancel) => CloseReason = closeReason;
+    }
+    public class FormClosedEventArgs : EventArgs
+    {
+        public CloseReason CloseReason { get; }
+        public FormClosedEventArgs(CloseReason closeReason) => CloseReason = closeReason;
+    }
+    public delegate void FormClosingEventHandler(object? sender, FormClosingEventArgs e);
+    public delegate void FormClosedEventHandler(object? sender, FormClosedEventArgs e);
+    [Flags] public enum AnchorStyles { None = 0, Top = 1, Bottom = 2, Left = 4, Right = 8 }
+    public class Control : IDisposable
+    {
+        internal readonly int Id = Bridge.NextId++;
+        string text = "";
+        public string Name { get; set; } = "";
+        public virtual string Text { get => text; set { if (text == value) return; text = value; TextChanged?.Invoke(this, EventArgs.Empty); } }
+        public Point Location { get; set; }
+        public Size Size { get; set; } = new(100, 28);
+        public int Left { get => Location.X; set => Location = new(value, Top); }
+        public int Top { get => Location.Y; set => Location = new(Left, value); }
+        public int Width { get => Size.Width; set => Size = new(value, Height); }
+        public int Height { get => Size.Height; set => Size = new(Width, value); }
+        public Rectangle Bounds { get => new(Location, Size); set { Location = value.Location; Size = value.Size; } }
+        public bool Enabled { get; set; } = true;
+        public bool Visible { get; set; } = true;
+        public Color BackColor { get; set; } = Color.White;
+        public Color ForeColor { get; set; } = Color.Black;
+        public object? Tag { get; set; }
+        public int TabIndex { get; set; }
+        public bool TabStop { get; set; } = true;
+        public Control? Parent { get; internal set; }
+        public ControlCollection Controls { get; }
+        public event EventHandler? Click;
+        public event EventHandler? TextChanged;
+        public Control()
+        {
+            // Walk through user subclasses to the compatible built-in control.
+            var type = GetType();
+            while (type.BaseType is not null && type.Namespace != "System.Windows.Forms") type = type.BaseType;
+            var size = FormattedStudioInternal.ControlDefaults.Size(type.Name);
+            Size = new(size.Width, size.Height);
+            BackColor = ColorTranslator.FromHtml(FormattedStudioInternal.ControlDefaults.Background(type.Name));
+            Controls = new(this); Bridge.Controls[Id] = this;
+        }
+        public virtual void Show() => Visible = true;
+        public virtual void Hide() => Visible = false;
+        public bool Focus() { Bridge.FocusId = Id; return true; }
+        public void SuspendLayout() { }
+        public void ResumeLayout(bool performLayout = true) { }
+        public void PerformLayout() { }
+        public void BringToFront() { if (Parent is { } p) { p.Controls.Remove(this); p.Controls.Add(this); } }
+        public virtual void Dispose() { foreach (var c in Controls.ToArray()) c.Dispose(); Bridge.Controls.Remove(Id); Parent?.Controls.Remove(this); }
+        internal void RaiseClick() => Click?.Invoke(this, EventArgs.Empty);
+        public sealed class ControlCollection : List<Control>
+        {
+            readonly Control owner;
+            internal ControlCollection(Control owner) => this.owner = owner;
+            public new void Add(Control child) { if (child == owner || owner.Ancestors().Contains(child)) throw new InvalidOperationException("Циклическая иерархия элементов"); child.Parent?.Controls.Remove(child); child.Parent = owner; base.Add(child); }
+            public new void AddRange(IEnumerable<Control> children) { foreach (var child in children) Add(child); }
+            public new bool Remove(Control child) { if (!base.Remove(child)) return false; child.Parent = null; return true; }
+            public new void Clear() { foreach (var c in this) c.Parent = null; base.Clear(); }
+            public Control? this[string name] => this.FirstOrDefault(c => c.Name == name);
+        }
+        internal IEnumerable<Control> Ancestors() { for (var p = Parent; p != null; p = p.Parent) yield return p; }
+    }
+    public class Form : Control
+    {
+        internal bool Closed;
+        bool loaded;
+        bool closing;
+        public Form? Owner { get; set; }
+        public Size ClientSize { get => Size; set => Size = value; }
+        public FormStartPosition StartPosition { get; set; }
+        public DialogResult DialogResult { get; set; }
+        public event EventHandler? Load;
+        public event EventHandler? Shown;
+        public event FormClosingEventHandler? FormClosing;
+        public event FormClosedEventHandler? FormClosed;
+        public Form() { Size = new(440, 300); Visible = false; }
+        public override void Show() { if (Closed) throw new ObjectDisposedException(Name); if (!Bridge.Forms.Contains(this)) Bridge.Forms.Add(this); Visible = true; if (!loaded) { loaded = true; Load?.Invoke(this, EventArgs.Empty); } Shown?.Invoke(this, EventArgs.Empty); Bridge.Snapshot(); }
+        public DialogResult ShowDialog() => ShowDialog(null);
+        public DialogResult ShowDialog(Form? owner)
+        {
+            Owner = owner ?? Bridge.Forms.LastOrDefault(f => f != this);
+            var previous = Bridge.Modal; Bridge.Modal = Id; Show();
+            while (!Closed)
+            {
+                if (DialogResult != DialogResult.None) { Close(); if (!Closed) DialogResult = DialogResult.None; }
+                if (Closed || !Bridge.Pump()) break;
+            }
+            Bridge.Modal = previous; Bridge.Snapshot(); return DialogResult;
+        }
+        public void Close()
+        {
+            if (Closed || closing) return;
+            closing = true;
+            try
+            {
+                var args = new FormClosingEventArgs(CloseReason.UserClosing, false);
+                FormClosing?.Invoke(this, args);
+                if (args.Cancel) return;
+                foreach (var child in Bridge.Forms.Where(f => f.Owner == this).ToArray()) { child.Close(); if (!child.Closed) return; }
+                Closed = true; Visible = false;
+                if (Bridge.Modal == Id && DialogResult == DialogResult.None) DialogResult = DialogResult.Cancel;
+                Bridge.Forms.Remove(this); FormClosed?.Invoke(this, new FormClosedEventArgs(CloseReason.UserClosing)); Bridge.Snapshot();
+            }
+            finally { closing = false; }
+        }
+        public override void Dispose() { Close(); base.Dispose(); }
+    }
+    public class Button : Control { public DialogResult DialogResult { get; set; } public void PerformClick() { RaiseClick(); if (DialogResult != DialogResult.None && Ancestors().OfType<Form>().FirstOrDefault() is { } f) f.DialogResult = DialogResult; } }
+    public class Label : Control { public bool AutoSize { get; set; } }
+    public class TextBox : Control { public bool ReadOnly { get; set; } public bool Multiline { get; set; } public bool UseSystemPasswordChar { get; set; } public int MaxLength { get; set; } = 32767; public void Clear() => Text = ""; }
+    public class CheckBox : Control
+    {
+        bool value;
+        public bool Checked { get => value; set { if (this.value == value) return; this.value = value; CheckedChanged?.Invoke(this, EventArgs.Empty); } }
+        public event EventHandler? CheckedChanged;
+    }
+    public class RadioButton : CheckBox { }
+    public class ListBox : Control
+    {
+        int index = -1;
+        public List<object> Items { get; } = new();
+        public virtual int SelectedIndex { get => index; set { if (value < -1 || value >= Items.Count) throw new ArgumentOutOfRangeException(nameof(value)); if (index == value) return; index = value; SelectedIndexChanged?.Invoke(this, EventArgs.Empty); } }
+        public object? SelectedItem { get => index >= 0 && index < Items.Count ? Items[index] : null; set => SelectedIndex = Items.IndexOf(value!); }
+        public event EventHandler? SelectedIndexChanged;
+    }
+    public class ComboBox : ListBox
+    {
+        public ComboBoxStyle DropDownStyle { get; set; } = ComboBoxStyle.DropDown;
+        public override string Text { get => base.Text; set { base.Text = value; base.SelectedIndex = Items.FindIndex(item => (item?.ToString() ?? "") == value); } }
+        public override int SelectedIndex { get => base.SelectedIndex; set { if (value < -1 || value >= Items.Count) throw new ArgumentOutOfRangeException(nameof(value)); base.Text = value < 0 ? "" : Items[value]?.ToString() ?? ""; base.SelectedIndex = value; } }
+    }
+    public class Panel : Control { }
+    public class GroupBox : Control { }
+    public class ProgressBar : Control { public int Minimum { get; set; } public int Maximum { get; set; } = 100; public int Value { get; set; } }
+    public static class Application
+    {
+        public static void EnableVisualStyles() { }
+        public static void SetCompatibleTextRenderingDefault(bool value) { }
+        public static void Run(Form main) { main.Show(); while (!main.Closed && Bridge.Pump()) { } }
+        public static void Exit() { foreach (var form in Bridge.Forms.ToArray()) form.Close(); }
+    }
+    public static class MessageBox
+    {
+        public static DialogResult Show(string text, string caption = "", MessageBoxButtons buttons = MessageBoxButtons.OK, MessageBoxIcon icon = MessageBoxIcon.None)
+        {
+            var id = Bridge.NextId++;
+            Bridge.Send(new { kind = "message", id, text, caption, buttons = buttons.ToString(), icon = icon.ToString() });
+            while (!Bridge.Dialogs.ContainsKey(id) && Bridge.Pump()) { }
+            return Bridge.Dialogs.Remove(id, out var result) ? result : DialogResult.Cancel;
+        }
+    }
+    internal static class Bridge
+    {
+        internal static int NextId = 1, FocusId, Modal, Ack;
+        internal static readonly Dictionary<int, Control> Controls = new();
+        internal static readonly Dictionary<int, DialogResult> Dialogs = new();
+        internal static readonly List<Form> Forms = new();
+        static readonly System.IO.StreamWriter Output = new(Console.OpenStandardOutput()) { AutoFlush = true };
+        internal static void Send(object value) => Output.WriteLine(JsonSerializer.Serialize(value));
+        static string DebugName(Control control)
+        {
+            if (control.Name.Length > 0) return control.Name;
+            foreach (var form in Forms)
+                foreach (var field in form.GetType().GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic))
+                    if (typeof(Control).IsAssignableFrom(field.FieldType) && ReferenceEquals(field.GetValue(form), control)) return field.Name;
+            return "";
+        }
+        static object Node(Control c, int depth = 0)
+        {
+            if (depth > 20 || Controls.Count > 1000) throw new InvalidOperationException("Слишком много элементов формы");
+            return new { id = c.Id, name = DebugName(c), type = c.GetType().Name, text = c.Text, x = c.Left, y = c.Top, width = c.Width, height = c.Height,
+                visible = c.Visible, enabled = c.Enabled, backColor = ColorTranslator.ToHtml(c.BackColor), foreColor = ColorTranslator.ToHtml(c.ForeColor),
+                check = c is CheckBox check && check.Checked, readOnly = c is TextBox t && t.ReadOnly, multiline = c is TextBox m && m.Multiline,
+                password = c is TextBox p && p.UseSystemPasswordChar, maxLength = c is TextBox l ? l.MaxLength : 32767,
+                items = c is ListBox list ? list.Items.Select(o => o?.ToString() ?? "").ToArray() : [], selectedIndex = c is ListBox select ? select.SelectedIndex : -1,
+                minimum = c is ProgressBar min ? min.Minimum : 0, maximum = c is ProgressBar max ? max.Maximum : 100, value = c is ProgressBar v ? v.Value : 0,
+                grid = c is DataGridView grid ? grid.SnapshotGrid() : null,
+                dropDownStyle = c is ComboBox combo ? combo.DropDownStyle.ToString() : null,
+                children = c.Controls.Select(child => Node(child, depth + 1)).ToArray() };
+        }
+        internal static void Snapshot() { Send(new { kind = "forms", modal = Modal, focus = FocusId, ack = Ack, forms = Forms.Select(f => Node(f)).ToArray() }); FocusId = 0; }
+        internal static bool Pump()
+        {
+            var line = Console.In.ReadLine();
+            if (line is null) return false;
+            using var data = JsonDocument.Parse(line);
+            var root = data.RootElement;
+            if (root.TryGetProperty("seq", out var seq)) Ack = seq.GetInt32();
+            var id = root.GetProperty("id").GetInt32();
+            var kind = root.GetProperty("kind").GetString();
+            if (kind == "dialog") Dialogs[id] = Enum.Parse<DialogResult>(root.GetProperty("value").GetString()!);
+            else if (Controls.TryGetValue(id, out var c))
+            {
+                if (kind == "close" && c is Form f) { f.Close(); Send(new { kind = "close-result", id }); }
+                else if (c.Enabled && c.Visible)
+                {
+                    if (kind == "text" && c is TextBox t && !t.ReadOnly) t.Text = root.GetProperty("value").GetString() ?? "";
+                    else if (kind == "text" && c is ComboBox combo && combo.DropDownStyle != ComboBoxStyle.DropDownList) combo.Text = root.GetProperty("value").GetString() ?? "";
+                    else if (kind == "check" && c is CheckBox check) { if (check is RadioButton && check.Parent is { } parent) foreach (var sibling in parent.Controls.OfType<RadioButton>()) sibling.Checked = false; check.Checked = root.GetProperty("value").GetBoolean(); check.RaiseClick(); }
+                    else if (kind == "select" && c is ListBox list) list.SelectedIndex = root.GetProperty("value").GetInt32();
+                    else if (kind == "grid" && c is DataGridView grid) grid.HandleGrid(root.GetProperty("value").GetString()!);
+                    else if (kind == "click") { if (c is Button b) b.PerformClick(); else c.RaiseClick(); }
+                }
+            }
+            Snapshot();
+            return true;
+        }
+    }
+}

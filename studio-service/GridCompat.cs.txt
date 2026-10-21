@@ -1,0 +1,176 @@
+namespace System.Windows.Forms
+{
+    using System;
+    using System.Collections;
+    using System.Collections.Generic;
+    using System.Data;
+    using System.Linq;
+    using System.Text.Json;
+
+    public enum DataGridViewAutoSizeColumnsMode { None, ColumnHeader, AllCellsExceptHeader, AllCells, DisplayedCellsExceptHeader, DisplayedCells, Fill }
+    public enum DataGridViewSelectionMode { CellSelect, FullRowSelect, FullColumnSelect, RowHeaderSelect, ColumnHeaderSelect }
+    public class DataGridViewCellEventArgs : EventArgs
+    {
+        public int ColumnIndex { get; }
+        public int RowIndex { get; }
+        public DataGridViewCellEventArgs(int columnIndex, int rowIndex) { ColumnIndex = columnIndex; RowIndex = rowIndex; }
+    }
+    public delegate void DataGridViewCellEventHandler(object? sender, DataGridViewCellEventArgs e);
+    public class DataGridViewColumn
+    {
+        public string Name { get; set; } = "";
+        public string HeaderText { get; set; } = "";
+        public string DataPropertyName { get; set; } = "";
+        public int Width { get; set; } = 100;
+        public bool Visible { get; set; } = true;
+        public bool ReadOnly { get; set; }
+    }
+    public class DataGridViewTextBoxColumn : DataGridViewColumn { }
+    public class DataGridViewColumnCollection : List<DataGridViewColumn>
+    {
+        public int Add(string name, string headerText) { Add(new DataGridViewTextBoxColumn { Name = name, HeaderText = headerText }); return Count - 1; }
+        public new int Add(DataGridViewColumn column) { base.Add(column); return Count - 1; }
+        public DataGridViewColumn this[string name] => this.First(c => c.Name == name);
+    }
+    public class DataGridViewCell
+    {
+        object? value;
+        internal Func<object?>? Read;
+        internal Action<object?>? Write;
+        internal DataGridViewRow Row = null!;
+        public object? Value { get => Read is null ? value : Read(); set { if (Write is not null) Write(value); else this.value = value; } }
+        public bool ReadOnly { get; set; }
+        public int ColumnIndex => Row.Cells.IndexOf(this);
+        public int RowIndex => Row.Index;
+    }
+    public class DataGridViewCellCollection : List<DataGridViewCell>
+    {
+        readonly DataGridViewRow row;
+        internal DataGridViewCellCollection(DataGridViewRow row) => this.row = row;
+        public DataGridViewCell this[string name] => this[row.Grid.Columns.FindIndex(c => c.Name == name)];
+    }
+    public class DataGridViewRow
+    {
+        internal readonly int Id = Bridge.NextId++;
+        internal DataGridView Grid = null!;
+        public DataGridViewCellCollection Cells { get; }
+        public int Index => Grid.Rows.IndexOf(this);
+        public bool Selected { get => Grid.CurrentRow == this; set { if (value && Cells.Count > 0) Grid.CurrentCell = Cells[0]; } }
+        public object? DataBoundItem { get; internal set; }
+        public DataGridViewRow() => Cells = new(this);
+    }
+    public class DataGridViewRowCollection : List<DataGridViewRow>
+    {
+        readonly DataGridView grid;
+        internal DataGridViewRowCollection(DataGridView grid) => this.grid = grid;
+        public int Add(params object?[] values)
+        {
+            if (grid.DataSource is not null) throw new InvalidOperationException("Изменяй строки через DataSource.");
+            if (grid.Columns.Count == 0 || values.Length > grid.Columns.Count) throw new InvalidOperationException("Сначала добавь столбцы DataGridView.");
+            var row = new DataGridViewRow { Grid = grid };
+            for (var i = 0; i < grid.Columns.Count; i++) row.Cells.Add(new DataGridViewCell { Row = row, Value = i < values.Length ? values[i] : null });
+            base.Add(row); return Count - 1;
+        }
+    }
+    public class DataGridView : Control
+    {
+        object? source;
+        DataGridViewCell? current;
+        string error = "";
+        public DataGridViewColumnCollection Columns { get; } = new();
+        public DataGridViewRowCollection Rows { get; }
+        public bool ReadOnly { get; set; }
+        public bool AutoGenerateColumns { get; set; } = true;
+        public bool AllowUserToAddRows { get; set; } = true;
+        public bool AllowUserToDeleteRows { get; set; } = true;
+        public bool ColumnHeadersVisible { get; set; } = true;
+        public bool RowHeadersVisible { get; set; } = true;
+        public DataGridViewAutoSizeColumnsMode AutoSizeColumnsMode { get; set; }
+        public DataGridViewSelectionMode SelectionMode { get; set; } = DataGridViewSelectionMode.RowHeaderSelect;
+        public DataGridViewCell? CurrentCell { get => current; set { if (current == value) return; current = value; SelectionChanged?.Invoke(this, EventArgs.Empty); } }
+        public DataGridViewRow? CurrentRow => current?.Row;
+        public event EventHandler? SelectionChanged;
+        public event DataGridViewCellEventHandler? CellClick;
+        public event DataGridViewCellEventHandler? CellDoubleClick;
+        public event DataGridViewCellEventHandler? CellValueChanged;
+        public DataGridView() => Rows = new(this);
+        public object? DataSource
+        {
+            get => source;
+            set
+            {
+                if (value is not null && value is not DataTable && value is not DataView)
+                    throw new NotSupportedException("Mac DataGridView: DataSource пока поддерживает DataTable и DataView.");
+                source = value; Rows.Clear(); CurrentCell = null;
+                var table = value is DataView view ? view.Table : value as DataTable;
+                if (AutoGenerateColumns)
+                {
+                    Columns.Clear();
+                    if (table is not null) foreach (DataColumn c in table.Columns)
+                        Columns.Add(new DataGridViewTextBoxColumn { Name = c.ColumnName, HeaderText = c.Caption, DataPropertyName = c.ColumnName, ReadOnly = c.ReadOnly });
+                }
+                BindRows();
+            }
+        }
+        void BindRows()
+        {
+            if (source is null) return;
+            var view = source is DataTable table ? table.DefaultView : (DataView)source;
+            var previous = Rows.ToDictionary(r => ((DataRowView)r.DataBoundItem!).Row);
+            var ordered = new List<DataGridViewRow>();
+            foreach (DataRowView item in view)
+            {
+                if (ordered.Count >= 2000) throw new InvalidOperationException("Mac DataGridView: максимум 2000 строк.");
+                if (!previous.TryGetValue(item.Row, out var row)) row = new DataGridViewRow { Grid = this, DataBoundItem = item };
+                var activeColumn = current?.Row == row ? current.ColumnIndex : -1;
+                row.Cells.Clear();
+                foreach (var column in Columns)
+                {
+                    var field = column.DataPropertyName.Length > 0 ? column.DataPropertyName : column.Name;
+                    var exists = item.Row.Table.Columns.Contains(field);
+                    row.Cells.Add(new DataGridViewCell { Row = row,
+                        Read = () => exists ? item[field] : null,
+                        ReadOnly = !exists || item.Row.Table.Columns[field]!.ReadOnly,
+                        Write = value => { if (exists) item[field] = value ?? DBNull.Value; } });
+                }
+                if (activeColumn >= 0 && activeColumn < row.Cells.Count) current = row.Cells[activeColumn];
+                ordered.Add(row);
+            }
+            Rows.Clear(); Rows.AddRange(ordered);
+            if (current is not null && !Rows.Contains(current.Row)) current = null;
+        }
+        internal object SnapshotGrid()
+        {
+            BindRows();
+            if (Rows.Count > 2000 || Columns.Count > 100) throw new InvalidOperationException("Mac DataGridView: максимум 2000 строк и 100 столбцов.");
+            return new { columns = Columns.Select(c => new { name = c.Name, header = c.HeaderText, width = c.Width, visible = c.Visible }),
+                rows = Rows.Select(r => new { id = r.Id, cells = r.Cells.Select(c => new { text = Convert.ToString(c.Value) ?? "", readOnly = ReadOnly || c.ReadOnly || Columns[c.ColumnIndex].ReadOnly }) }),
+                selected = CurrentRow?.Id, currentColumn = current?.ColumnIndex ?? -1,
+                fill = AutoSizeColumnsMode == DataGridViewAutoSizeColumnsMode.Fill,
+                headers = ColumnHeadersVisible, rowHeaders = RowHeadersVisible,
+                add = AllowUserToAddRows && !ReadOnly && source is null && Columns.Count > 0,
+                delete = AllowUserToDeleteRows && !ReadOnly && source is null, error };
+        }
+        internal void HandleGrid(string json)
+        {
+            using var doc = JsonDocument.Parse(json); var request = doc.RootElement;
+            var action = request.GetProperty("action").GetString();
+            error = "";
+            if (action == "add") { if (AllowUserToAddRows && !ReadOnly && source is null) { Rows.Add(); CurrentCell = Rows[^1].Cells[0]; } return; }
+            var row = Rows.FirstOrDefault(r => r.Id == request.GetProperty("row").GetInt32());
+            var column = request.GetProperty("column").GetInt32();
+            if (row is null || column < 0 || column >= row.Cells.Count) return;
+            CurrentCell = row.Cells[column];
+            var args = new DataGridViewCellEventArgs(column, row.Index);
+            if (action == "click") CellClick?.Invoke(this, args);
+            else if (action == "double") CellDoubleClick?.Invoke(this, args);
+            else if (action == "delete") { if (AllowUserToDeleteRows && !ReadOnly && source is null) { Rows.Remove(row); CurrentCell = null; } }
+            else if (action == "edit" && !ReadOnly && !Columns[column].ReadOnly && !CurrentCell.ReadOnly)
+            {
+                try { CurrentCell.Value = request.GetProperty("text").GetString(); }
+                catch (Exception e) when (e is ArgumentException or DataException or FormatException or InvalidCastException) { error = e.Message; return; }
+                CellValueChanged?.Invoke(this, args);
+            }
+        }
+    }
+}
