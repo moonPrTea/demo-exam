@@ -3,6 +3,8 @@ import {contextBridge, ipcRenderer} from 'electron';
 contextBridge.exposeInMainWorld('sheetDesktop', {
   boot: () => ipcRenderer.invoke('sheet-boot'),
   checkpoint: (text: string) => ipcRenderer.sendSync('sheet-checkpoint', text),
+  checkpointAsync: (text: string) =>
+    ipcRenderer.invoke('sheet-checkpoint-async', text),
   file: (command: string, text?: string) =>
     ipcRenderer.invoke('sheet-file', command, text),
   setLanguage: (language: string) =>

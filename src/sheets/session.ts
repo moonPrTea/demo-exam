@@ -30,6 +30,7 @@ export class SheetSession {
   readonly book: Workbook;
   private history: CellChange[][] = [];
   dirty = false;
+  revision = 0;
 
   constructor(blankSheet?: string, restored?: Workbook) {
     this.book = restored ?? new Workbook();
@@ -84,6 +85,7 @@ export class SheetSession {
     while (names.has((prefix + number).toLowerCase())) number++;
     const name = prefix + number;
     this.book.addSheet(name);
+    this.revision++;
     this.dirty = true;
     return name;
   }
@@ -104,6 +106,7 @@ export class SheetSession {
 
   renameSheet(name: string, newName: string) {
     this.book.renameSheet(name, newName);
+    this.revision++;
     this.history = this.history.map(batch =>
       batch.map(change => ({
         ...change,
@@ -119,6 +122,7 @@ export class SheetSession {
 
   deleteSheet(name: string) {
     this.book.deleteSheet(name);
+    this.revision++;
     this.history = this.history
       .map(batch =>
         batch
@@ -143,6 +147,7 @@ export class SheetSession {
     }));
     if (JSON.stringify(previous) === JSON.stringify(changes)) return;
     this.book.setCells(changes);
+    this.revision++;
     this.history.push(previous);
     if (this.history.length > 100) this.history.shift();
     this.dirty = true;
@@ -152,6 +157,7 @@ export class SheetSession {
     const batch = this.history.pop();
     if (batch) {
       this.book.setCells(batch);
+      this.revision++;
       this.dirty = true;
     }
     return batch?.[0];

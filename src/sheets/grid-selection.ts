@@ -8,25 +8,44 @@ export function gridSelection(
   grid: HTMLElement,
   initial: string,
   select: (key: string) => boolean,
+  size = {rows: 100, columns: 12},
 ) {
   let anchor = initial;
   let end = initial;
   let pointer: number | null = null;
   let suppressClick = false;
+  const cells = new Map(
+    [...grid.querySelectorAll<HTMLElement>('[data-cell]')].map(cell => [
+      cell.dataset.cell!,
+      cell,
+    ]),
+  );
+  let painted = new Set<string>();
   const paint = () => {
     const bounds = rangeBounds(parseAddress(anchor), parseAddress(end));
-    for (const cell of grid.querySelectorAll<HTMLElement>('[data-cell]')) {
-      const ref = parseAddress(cell.dataset.cell!);
-      cell.classList.toggle(
-        'selected-range',
-        ref.row >= bounds.top &&
-          ref.row < bounds.top + bounds.rows &&
-          ref.column >= bounds.left &&
-          ref.column < bounds.left + bounds.columns,
-      );
+    const next = new Set<string>();
+    for (let row = bounds.top; row < bounds.top + bounds.rows; row++) {
+      for (
+        let column = bounds.left;
+        column < bounds.left + bounds.columns;
+        column++
+      ) {
+        const key = addressName({
+          row,
+          column,
+          rowAbsolute: false,
+          columnAbsolute: false,
+        });
+        next.add(key);
+        if (!painted.has(key)) cells.get(key)?.classList.add('selected-range');
+      }
     }
+    for (const key of painted)
+      if (!next.has(key)) cells.get(key)?.classList.remove('selected-range');
+    painted = next;
   };
   const extend = (key: string) => {
+    if (end === key) return;
     end = key;
     paint();
   };
@@ -89,8 +108,8 @@ export function gridSelection(
       const ref = parseAddress(end);
       const key = addressName({
         ...ref,
-        row: Math.min(100, Math.max(1, ref.row + dy)),
-        column: Math.min(12, Math.max(1, ref.column + dx)),
+        row: Math.min(size.rows, Math.max(1, ref.row + dy)),
+        column: Math.min(size.columns, Math.max(1, ref.column + dx)),
       });
       extend(key);
       grid.querySelector<HTMLElement>(`[data-cell="${key}"]`)?.scrollIntoView({

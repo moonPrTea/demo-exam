@@ -9,7 +9,12 @@ import {
 import fs from 'node:fs';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
-import {atomicWrite, digest, readText} from './sheet-store.cjs';
+import {
+  atomicWrite,
+  atomicWriteAsync,
+  digest,
+  readText,
+} from './sheet-store.cjs';
 import type {DocumentBoot, SheetSnapshot} from '../src/sheets/document.js';
 
 interface DocumentState {
@@ -19,14 +24,16 @@ interface DocumentState {
   hash?: string;
   last?: string;
   busy?: boolean;
+  pending?: Promise<boolean>;
 }
 const documents = new Map<BrowserWindow, DocumentState>();
 const directory = () => path.join(app.getPath('userData'), 'sheet-recovery');
 const recoveryPath = (id: string) => path.join(directory(), `${id}.json`);
 export function attachDocument(window: BrowserWindow, state?: DocumentState) {
   documents.set(window, state ?? {id: randomUUID()});
-  window.on('closed', () => {
+  window.on('closed', async () => {
     const current = documents.get(window)!;
+    await current.pending;
     if (
       current.snapshot &&
       !current.snapshot.dirty &&
@@ -111,28 +118,49 @@ export function registerSheetFiles(create: (state: DocumentState) => void) {
       name: state.file && path.basename(state.file),
     };
   });
-  // Synchronous acknowledgement makes the final edit durable before the window closes.
+  const checkpoint = (
+    event: IpcMainEvent | IpcMainInvokeEvent,
+    text: unknown,
+  ) => {
+    const {state} = trusted(event);
+    const write = async () => {
+      try {
+        if (
+          typeof text !== 'string' ||
+          Buffer.byteLength(text) > 8 * 1024 * 1024
+        )
+          throw new Error('Invalid snapshot');
+        if (text !== state.last || !fs.existsSync(recoveryPath(state.id))) {
+          if (!validate) throw new Error('Not ready');
+          const snapshot = validate(JSON.parse(text));
+          const content = JSON.stringify({
+            snapshot,
+            file: state.file,
+            hash: state.hash,
+          });
+          if (Buffer.byteLength(content) > 8 * 1024 * 1024)
+            throw new Error('Recovery is too large');
+          await fs.promises.mkdir(directory(), {recursive: true, mode: 0o700});
+          await atomicWriteAsync(recoveryPath(state.id), content);
+          state.snapshot = snapshot;
+          state.last = text;
+        }
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    // One ordered writer per document: a slow old write must never replace a new one.
+    state.pending = (state.pending ?? Promise.resolve(true)).then(write);
+    return state.pending;
+  };
+  ipcMain.handle('sheet-checkpoint-async', checkpoint);
+  // Only closing needs a synchronous renderer acknowledgement; main stays responsive.
   ipcMain.on('sheet-checkpoint', (event, text: unknown) => {
     try {
-      const {state} = trusted(event);
-      if (typeof text !== 'string' || Buffer.byteLength(text) > 8 * 1024 * 1024)
-        throw new Error('Invalid snapshot');
-      if (text !== state.last || !fs.existsSync(recoveryPath(state.id))) {
-        if (!validate) throw new Error('Not ready');
-        const snapshot = validate(JSON.parse(text));
-        const content = JSON.stringify({
-          snapshot,
-          file: state.file,
-          hash: state.hash,
-        });
-        if (Buffer.byteLength(content) > 8 * 1024 * 1024)
-          throw new Error('Recovery is too large');
-        fs.mkdirSync(directory(), {recursive: true, mode: 0o700});
-        atomicWrite(recoveryPath(state.id), content);
-        state.snapshot = snapshot;
-        state.last = text;
-      }
-      event.returnValue = true;
+      void checkpoint(event, text).then(saved => {
+        event.returnValue = saved;
+      });
     } catch {
       event.returnValue = false;
     }
@@ -145,6 +173,7 @@ export function registerSheetFiles(create: (state: DocumentState) => void) {
         return {canceled: true};
       state.busy = true;
       try {
+        await state.pending;
         const {readDocument, documentOf} =
           await import('../src/sheets/document.js');
         const filters = [{name: 'formatted', extensions: ['formatted']}];

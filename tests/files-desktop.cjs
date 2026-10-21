@@ -133,6 +133,12 @@ async function run() {
   // Simulate loss of a renderer without beforeunload; disk checkpoints must suffice.
   await input(loaded, '=123');
   await click(loaded, '#formula-bar button[type=submit]');
+  await wait(() =>
+    js(
+      loaded,
+      'document.querySelector("#recovery").textContent.includes("saved")',
+    ),
+  );
   loaded.destroy();
   await restoreSheets();
   loaded = BrowserWindow.getAllWindows()[0];

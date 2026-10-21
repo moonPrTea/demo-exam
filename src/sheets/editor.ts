@@ -22,6 +22,7 @@ declare global {
     sheetDesktop?: {
       boot: () => Promise<DocumentBoot>;
       checkpoint: (text: string) => boolean;
+      checkpointAsync: (text: string) => Promise<boolean>;
       file: (
         command: string,
         text?: string,
@@ -46,6 +47,7 @@ const session = new SheetSession(
 session.dirty = boot?.snapshot?.dirty ?? false;
 let fileName = boot?.name;
 const book = session.book;
+const size = {rows: 100, columns: 12};
 const transfer = rangeTransfer(session);
 let sheet =
   boot?.snapshot?.sheet ?? (blank ? book.getSheetNames()[0] : 'Практика');
@@ -105,20 +107,20 @@ query('#function-wizard').onclick = functionDialog(
   },
 );
 const head = grid.createTHead().insertRow();
-for (let col = 0; col <= 12; col++) {
+for (let col = 0; col <= size.columns; col++) {
   const cell = document.createElement('th');
   cell.scope = 'col';
   cell.textContent = col ? String.fromCharCode(64 + col) : '';
   head.append(cell);
 }
 const body = grid.createTBody();
-for (let row = 1; row <= 100; row++) {
+for (let row = 1; row <= size.rows; row++) {
   const tr = body.insertRow();
   const th = document.createElement('th');
   th.scope = 'row';
   th.textContent = String(row);
   tr.append(th);
-  for (let col = 0; col < 12; col++) {
+  for (let col = 0; col < size.columns; col++) {
     const cell = tr.insertCell();
     cell.dataset.cell = `${String.fromCharCode(65 + col)}${row}`;
     cell.setAttribute('role', 'gridcell');
@@ -139,7 +141,10 @@ const editing = cellEditor(
   },
   tab => {
     if (!commit()) return;
-    const column = Math.min(76, Math.max(65, selected.charCodeAt(0) + tab));
+    const column = Math.min(
+      64 + size.columns,
+      Math.max(65, selected.charCodeAt(0) + tab),
+    );
     select(String.fromCharCode(column) + selected.slice(1));
   },
   () => {
@@ -147,14 +152,17 @@ const editing = cellEditor(
     cells.get(selected)!.focus();
   },
 );
-const selection = gridSelection(grid, selected, select);
+const selection = gridSelection(grid, selected, select, size);
 const errors = errorTooltip(grid);
+let renderedSheet: string | undefined;
 function render() {
+  renderedSheet = sheet;
   errors.hide();
   editing.reset();
   for (const [key, cell] of cells) {
     const value = book.getValue(sheet, key);
-    cell.textContent = isCellError(value) ? value.code : String(value ?? '');
+    const text = isCellError(value) ? value.code : String(value ?? '');
+    if (cell.textContent !== text) cell.textContent = text;
     if (isCellError(value)) {
       cell.dataset.error = errorExplanation(value.code, language);
       cell.setAttribute('aria-description', cell.dataset.error);
@@ -195,11 +203,17 @@ function updateTitle() {
   document.title = `${text} - formatted Sheets`;
   query('#title').textContent = text;
 }
-function checkpoint() {
-  updateTitle();
-  if (!window.sheetDesktop || restoring) return false;
+let checkpointTimer: ReturnType<typeof setTimeout> | undefined;
+let checkpointGeneration = 0;
+let cachedRevision = -1;
+let cachedDocument = documentOf(book);
+function snapshotText() {
+  if (cachedRevision !== session.revision) {
+    cachedDocument = documentOf(book);
+    cachedRevision = session.revision;
+  }
   const snapshot: SheetSnapshot = {
-    document: documentOf(book),
+    document: cachedDocument,
     language,
     sheet,
     address: selected,
@@ -213,10 +227,34 @@ function checkpoint() {
         }
       : {}),
   };
-  const saved = window.sheetDesktop.checkpoint(JSON.stringify(snapshot));
+  return JSON.stringify(snapshot);
+}
+function checkpoint(final = false) {
+  updateTitle();
+  if (!window.sheetDesktop || restoring) return false;
+  let generation = ++checkpointGeneration;
+  const report = (saved: boolean) => {
+    if (generation === checkpointGeneration)
+      query('#recovery').textContent =
+        words[language][saved ? 'recoverySaved' : 'recoveryFailed'];
+    return saved;
+  };
+  if (final) {
+    clearTimeout(checkpointTimer);
+    checkpointTimer = undefined;
+    return report(window.sheetDesktop.checkpoint(snapshotText()));
+  }
   query('#recovery').textContent =
-    words[language][saved ? 'recoverySaved' : 'recoveryFailed'];
-  return saved;
+    language === 'ru' ? 'Сохранение…' : 'Saving…';
+  if (checkpointTimer) return true;
+  checkpointTimer = setTimeout(() => {
+    checkpointTimer = undefined;
+    generation = checkpointGeneration;
+    void window
+      .sheetDesktop!.checkpointAsync(snapshotText())
+      .then(report, () => report(false));
+  }, 120);
+  return true;
 }
 let fileBusy = false;
 async function fileCommand(command: string) {
@@ -276,9 +314,21 @@ function commit() {
 }
 function select(key: string) {
   if (!cells.has(key) || !commit()) return false;
+  errors.hide();
+  editing.reset();
+  const previous = cells.get(selected)!;
+  previous.tabIndex = -1;
+  previous.setAttribute('aria-selected', 'false');
   selected = key;
   selection.reset(key);
-  render();
+  if (renderedSheet !== sheet) render();
+  const current = cells.get(key)!;
+  current.tabIndex = 0;
+  current.setAttribute('aria-selected', 'true');
+  address.value = key;
+  formula.value = session.source(sheet, key, language);
+  query('#selection').textContent = `${sheet}, ${key}`;
+  checkpoint();
   cells.get(key)!.focus({preventScroll: true});
   cells.get(key)!.scrollIntoView({
     block: 'nearest',
@@ -516,7 +566,7 @@ grid.addEventListener('keydown', event => {
       return;
     }
     select(
-      `${String.fromCharCode(65 + Math.min(11, Math.max(0, c)))}${Math.min(100, Math.max(1, r))}`,
+      `${String.fromCharCode(65 + Math.min(size.columns - 1, Math.max(0, c)))}${Math.min(size.rows, Math.max(1, r))}`,
     );
   } else if (['Delete', 'Backspace'].includes(event.key)) {
     event.preventDefault();
@@ -571,7 +621,13 @@ query('#formula-bar').addEventListener('submit', event => {
   if (document.activeElement === address) {
     const key = address.value.toUpperCase();
     if (cells.has(key)) select(key);
-    else status(words[language].invalid);
+    else
+      status(
+        words[language].invalid.replace(
+          'L100',
+          `${String.fromCharCode(64 + size.columns)}${size.rows}`,
+        ),
+      );
   } else if (commit()) cells.get(selected)!.focus();
 });
 query('#cancel').onclick = () => {
@@ -589,13 +645,17 @@ query('#undo').onclick = () => {
   selected = previous.address;
   render();
 };
-function translate() {
+function translate(initial = false) {
   document.documentElement.lang = language;
   window.sheetDesktop?.setLanguage(language);
   document.querySelectorAll<HTMLElement>('[data-label]').forEach(element => {
     element.textContent =
       words[language][element.dataset.label as keyof typeof words.ru];
   });
+  query('#scope').textContent =
+    language === 'ru'
+      ? `${size.rows} строк × ${size.columns} столбцов`
+      : `${size.rows} rows × ${size.columns} columns`;
   for (const id of ['address', 'formula', 'grid', 'sheets'] as const)
     query('#' + id).setAttribute('aria-label', words[language][id]);
   query('#function-wizard').setAttribute('aria-label', words[language].wizard);
@@ -608,18 +668,37 @@ function translate() {
         String(button.dataset.language === language),
       ),
     );
-  render();
+  if (initial) {
+    render();
+    return;
+  }
+  errors.hide();
+  // Values and selection do not depend on the interface language.
+  // In particular, changing language must not commit an unfinished edit.
+  if (!draft) {
+    editing.reset();
+    formula.value = session.source(sheet, selected, language);
+  }
+  for (const cell of grid.querySelectorAll<HTMLElement>('[data-error]')) {
+    const value = book.getValue(sheet, cell.dataset.cell!);
+    if (!isCellError(value)) continue;
+    cell.dataset.error = errorExplanation(value.code, language);
+    cell.setAttribute('aria-description', cell.dataset.error);
+  }
+  status(words[language].ready);
+  checkpoint();
 }
 document
   .querySelectorAll<HTMLButtonElement>('[data-language]')
   .forEach(button => {
     button.onclick = () => {
-      if (commit()) {
-        language = button.dataset.language as keyof typeof words;
-        options.open = false;
+      options.open = false;
+      const next = button.dataset.language as keyof typeof words;
+      if (next !== language) {
+        language = next;
         translate();
-        query('summary').focus();
       }
+      query('summary').focus();
     };
   });
 document.addEventListener('click', event => {
@@ -649,12 +728,12 @@ document.addEventListener('keydown', event => {
   }
 });
 window.addEventListener('beforeunload', event => {
-  if ((session.dirty || draft) && !checkpoint()) {
+  if ((session.dirty || draft) && !checkpoint(true)) {
     event.preventDefault();
     event.returnValue = '';
   }
 });
-translate();
+translate(true);
 if (boot?.snapshot?.draft) {
   const pending = boot.snapshot.draft;
   sheet = pending.sheet;

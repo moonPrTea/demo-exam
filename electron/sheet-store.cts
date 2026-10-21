@@ -32,3 +32,21 @@ export function atomicWrite(file: string, text: string) {
     if (fs.existsSync(temporary)) fs.unlinkSync(temporary);
   }
 }
+
+export async function atomicWriteAsync(file: string, text: string) {
+  const temporary = path.join(path.dirname(file), `.${randomUUID()}.tmp`);
+  try {
+    const handle = await fs.promises.open(temporary, 'wx', 0o600);
+    try {
+      await handle.writeFile(text, 'utf8');
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
+    await fs.promises.rename(temporary, file);
+  } finally {
+    await fs.promises.unlink(temporary).catch(error => {
+      if (error.code !== 'ENOENT') throw error;
+    });
+  }
+}
