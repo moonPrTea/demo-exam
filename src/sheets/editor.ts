@@ -17,6 +17,7 @@ import {
 } from './document.js';
 
 import {words} from './labels.js';
+import {gridSize} from './launch.js';
 declare global {
   interface Window {
     sheetDesktop?: {
@@ -47,7 +48,12 @@ const session = new SheetSession(
 session.dirty = boot?.snapshot?.dirty ?? false;
 let fileName = boot?.name;
 const book = session.book;
-const size = {rows: 100, columns: 12};
+const size = gridSize(
+  book,
+  boot?.snapshot
+    ? [boot.snapshot.address, boot.snapshot.draft?.address ?? 'A1']
+    : [],
+);
 const transfer = rangeTransfer(session);
 let sheet =
   boot?.snapshot?.sheet ?? (blank ? book.getSheetNames()[0] : 'Практика');

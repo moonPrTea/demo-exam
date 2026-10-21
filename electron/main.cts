@@ -43,11 +43,9 @@ async function setup() {
     )
       throw new Error('Untrusted request');
   };
-  ipcMain.handle('open-sheets', event => {
+  ipcMain.handle('open-sheets', (event, request) => {
     trustedAi(event);
-    return restoreSheets().then(restored => {
-      if (!restored) openSheets();
-    });
+    return openSheets(request ?? {kind: 'blank'});
   });
   ipcMain.handle('setup-page', (event, tool: string) => {
     trustedAi(event);

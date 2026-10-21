@@ -139,6 +139,7 @@ export type View =
   | 'database';
 
 export interface AppState {
+  variantSelected?: boolean;
   version: 1;
   view: View;
   config: Config;
@@ -154,7 +155,9 @@ export type ExportResult =
   {canceled: true} | {directory: string; count: number; canceled?: false};
 
 export interface DesktopApi {
-  openSheets(): Promise<void>;
+  openSheets(
+    request?: {kind: 'blank' | 'lesson'} | {kind: 'variant'; config: Config},
+  ): Promise<void>;
   openSetupPage(tool: 'calc' | 'python' | 'ollama'): Promise<void>;
   platform: string;
   calcStatus(): Promise<CalcResult>;

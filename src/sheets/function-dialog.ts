@@ -54,13 +54,7 @@ export function functionDialog(
     cleanup();
     snapshot = {...context(), sheets: book.getSheetNames(), cells: []};
     applied = false;
-    for (const sheet of snapshot.sheets)
-      for (let row = 1; row <= 100; row++)
-        for (let col = 0; col < 12; col++) {
-          const address = `${String.fromCharCode(65 + col)}${row}`;
-          const input = book.getCell(sheet, address);
-          if (input !== null) snapshot.cells.push({sheet, address, input});
-        }
+    snapshot.cells = book.getInputs();
     child = window.open('wizard.html', 'function-wizard');
     if (!child) return;
     lock(false);

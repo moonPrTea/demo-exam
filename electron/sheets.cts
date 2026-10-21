@@ -8,6 +8,8 @@ import {
   type IpcMainEvent,
 } from 'electron';
 import path from 'node:path';
+import {randomUUID} from 'node:crypto';
+import type {SheetLaunch} from '../src/sheets/launch.js';
 import {
   attachDocument,
   registerSheetFiles,
@@ -97,7 +99,27 @@ ipcMain.on('sheet-range-picking', (event, active: unknown) => {
     child.focus();
   }
 });
-export function openSheets() {
+const launches = new Map<string, BrowserWindow>();
+export async function openSheets(request?: SheetLaunch) {
+  if (request) {
+    const {launchSnapshot} = await import('../src/sheets/launch.js');
+    const key = JSON.stringify(request);
+    const existing = launches.get(key);
+    if (existing && !existing.isDestroyed()) {
+      if (existing.isMinimized()) existing.restore();
+      existing.show();
+      existing.focus();
+      return;
+    }
+    const snapshot = launchSnapshot(request);
+    const window = createEditor(request.kind === 'blank', 'ru', {
+      id: randomUUID(),
+      snapshot,
+    });
+    launches.set(key, window);
+    window.on('closed', () => launches.delete(key));
+    return;
+  }
   if (editor) {
     if (editor.isMinimized()) editor.restore();
     editor.show();
@@ -122,6 +144,7 @@ function createEditor(
     'forma://app/sheets/index.html' +
     (blank ? `?blank=1&language=${language}&document=${++documentNumber}` : '');
   const window = new BrowserWindow({
+    show: false,
     width: 1200,
     height: 800,
     minWidth: 640,
@@ -215,4 +238,6 @@ function createEditor(
     if (editor === window) editor = [...editors].at(-1) ?? null;
   });
   void window.loadURL(url);
+  window.once('ready-to-show', () => window.show());
+  return window;
 }

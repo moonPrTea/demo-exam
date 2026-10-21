@@ -53,6 +53,7 @@ export function validateState(stored: unknown): AppState {
   )
     throw new Error('Invalid saved state');
   stored.config = normalizeConfig(stored.config);
+  stored.variantSelected = stored.variantSelected === true;
   if (
     typeof stored.delimiter !== 'string' ||
     ![';', ','].includes(stored.delimiter) ||
