@@ -8,9 +8,15 @@ import {
   type IpcMainEvent,
 } from 'electron';
 import path from 'node:path';
+import {
+  attachDocument,
+  registerSheetFiles,
+  restoreDocuments,
+} from './sheet-files.cjs';
 
 let editor: BrowserWindow | null = null;
 const editors = new Set<BrowserWindow>();
+const languages = new WeakMap<BrowserWindow, string>();
 let documentNumber = 0;
 function trustedEditor(event: IpcMainEvent, language: unknown) {
   const window = BrowserWindow.fromWebContents(event.sender);
@@ -23,6 +29,10 @@ function trustedEditor(event: IpcMainEvent, language: unknown) {
 }
 ipcMain.on('sheet-new-document', (event, language: unknown) => {
   if (trustedEditor(event, language)) createEditor(true, language as string);
+});
+ipcMain.on('sheet-language', (event, language: unknown) => {
+  const window = trustedEditor(event, language);
+  if (window) languages.set(window, language as string);
 });
 ipcMain.on(
   'sheet-menu',
@@ -96,7 +106,18 @@ export function openSheets() {
   }
   createEditor();
 }
-function createEditor(blank = false, language = 'ru') {
+export const restoreSheets = () =>
+  restoreDocuments(state =>
+    createEditor(false, state.snapshot?.language, state),
+  );
+registerSheetFiles(state =>
+  createEditor(false, state.snapshot?.language, state),
+);
+function createEditor(
+  blank = false,
+  language = 'ru',
+  restored?: Parameters<typeof attachDocument>[1],
+) {
   const url =
     'forma://app/sheets/index.html' +
     (blank ? `?blank=1&language=${language}&document=${++documentNumber}` : '');
@@ -114,7 +135,9 @@ function createEditor(blank = false, language = 'ru') {
     },
   });
   editor = window;
+  attachDocument(window, restored);
   editors.add(window);
+  languages.set(window, language);
   window.on('focus', () => {
     editor = window;
   });
@@ -124,12 +147,21 @@ function createEditor(blank = false, language = 'ru') {
         input.type === 'keyDown' &&
         (input.meta || input.control) &&
         !input.alt &&
-        !input.shift &&
-        (input.code === 'KeyN' || input.key.toLowerCase() === 'n')
+        (!input.shift || input.code === 'KeyS') &&
+        ['KeyN', 'KeyO', 'KeyS'].includes(input.code)
       ) {
         event.preventDefault();
         if (!input.isAutoRepeat)
-          window.webContents.send('sheet-command', 'new-document');
+          window.webContents.send(
+            'sheet-command',
+            input.code === 'KeyN'
+              ? 'new-document'
+              : input.code === 'KeyO'
+                ? 'open'
+                : input.shift
+                  ? 'save-as'
+                  : 'save',
+          );
       }
     });
   shortcut(window.webContents);
@@ -165,12 +197,14 @@ function createEditor(blank = false, language = 'ru') {
     if (target !== url) event.preventDefault();
   });
   window.webContents.on('will-prevent-unload', event => {
+    const ru = languages.get(window) !== 'en';
     const response = dialog.showMessageBoxSync(window, {
       type: 'warning',
-      message: 'Изменения не сохранены / Unsaved changes',
-      detail:
-        'Эта версия хранит книгу только в памяти / This version keeps the workbook in memory only',
-      buttons: ['Остаться / Stay', 'Закрыть / Close'],
+      message: ru ? 'Изменения не сохранены' : 'Unsaved changes',
+      detail: ru
+        ? 'Не удалось записать копию восстановления. Не закрывай окно: сохрани книгу в файл'
+        : 'Recovery could not be written. Keep this window open and save the workbook to a file',
+      buttons: ru ? ['Остаться', 'Закрыть'] : ['Stay', 'Close'],
       defaultId: 0,
       cancelId: 0,
     });

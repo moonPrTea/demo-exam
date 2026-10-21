@@ -16,7 +16,7 @@ import type {ConfigInput, ExportResult} from '../src/core/types.js';
 import {createOllamaClient} from './ollama.cjs';
 import type {IpcMainInvokeEvent} from 'electron';
 import {runCalcLesson} from './calc.cjs';
-import {openSheets} from './sheets.cjs';
+import {openSheets, restoreSheets} from './sheets.cjs';
 
 // Keep the existing profile and origin so the rename preserves progress.
 app.setPath(
@@ -45,7 +45,9 @@ async function setup() {
   };
   ipcMain.handle('open-sheets', event => {
     trustedAi(event);
-    openSheets();
+    return restoreSheets().then(restored => {
+      if (!restored) openSheets();
+    });
   });
   ipcMain.handle('setup-page', (event, tool: string) => {
     trustedAi(event);
@@ -255,6 +257,7 @@ function start() {
         ]),
       );
       createWindow();
+      await restoreSheets();
       app.on('activate', () => {
         if (!BrowserWindow.getAllWindows().length) createWindow();
       });

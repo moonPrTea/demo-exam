@@ -1,5 +1,16 @@
 export const words = {
   ru: {
+    open: 'Открыть',
+    save: 'Сохранить',
+    saveAs: 'Сохранить как',
+    recoverySaved: 'Копия восстановления записана',
+    recoveryFailed: 'Не удалось записать копию восстановления',
+    desktopOnly: 'Сохранение книг доступно в desktop-приложении',
+    fileFailed:
+      'Не удалось открыть или сохранить файл. Проверь формат, размер (до 8 МБ) и доступ к папке',
+    fileConflict:
+      'Файл изменён или удалён вне редактора. Используй «Сохранить как», чтобы не затереть другую версию',
+    fileOpened: 'Этот файл открыт в другом окне. Выбери другое имя',
     fill: 'Заполнить вниз',
     values: 'Оставить значения',
     renameSheet: 'Переименовать лист',
@@ -15,7 +26,7 @@ export const words = {
     options: 'Сервис',
     language: 'Язык интерфейса',
     undo: 'Отменить',
-    scope: '100 строк × 12 столбцов, только в памяти',
+    scope: '100 строк × 12 столбцов',
     apply: 'Применить',
     cancel: 'Отмена',
     address: 'Адрес ячейки',
@@ -28,6 +39,17 @@ export const words = {
     paste: 'Пока поддерживается вставка только одной ячейки',
   },
   en: {
+    open: 'Open',
+    save: 'Save',
+    saveAs: 'Save as',
+    recoverySaved: 'Recovery copy saved',
+    recoveryFailed: 'Recovery copy could not be saved',
+    desktopOnly: 'Workbook files are available in the desktop app',
+    fileFailed:
+      'Could not open or save the file. Check its format, size (up to 8 MB) and folder permissions',
+    fileConflict:
+      'The file was changed or removed outside the editor. Use Save as to keep both versions',
+    fileOpened: 'This file is open in another window. Choose a different name',
     fill: 'Fill down',
     values: 'Keep values',
     renameSheet: 'Rename sheet',
@@ -43,7 +65,7 @@ export const words = {
     options: 'Tools',
     language: 'Interface language',
     undo: 'Undo',
-    scope: '100 rows × 12 columns, memory only',
+    scope: '100 rows × 12 columns',
     apply: 'Apply',
     cancel: 'Cancel',
     address: 'Cell address',

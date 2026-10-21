@@ -9,11 +9,24 @@ import {gridSelection} from './grid-selection.js';
 import {rangeTransfer} from './transfer.js';
 import {errorExplanation} from './error-messages.js';
 import {errorTooltip} from './error-tooltip.js';
+import {
+  documentOf,
+  readDocument,
+  type DocumentBoot,
+  type SheetSnapshot,
+} from './document.js';
 
 import {words} from './labels.js';
 declare global {
   interface Window {
     sheetDesktop?: {
+      boot: () => Promise<DocumentBoot>;
+      checkpoint: (text: string) => boolean;
+      file: (
+        command: string,
+        text?: string,
+      ) => Promise<{name?: string; error?: string; canceled?: boolean}>;
+      setLanguage: (language: string) => void;
       menu: (language: string, sheet: string, count: number) => void;
       newDocument: (language: string) => void;
       onCommand: (callback: (command: string, sheet?: string) => void) => void;
@@ -22,17 +35,24 @@ declare global {
 }
 const parameters = new URLSearchParams(location.search);
 const blank = parameters.get('blank') === '1';
+const boot = await window.sheetDesktop?.boot();
 let language: keyof typeof words =
-  parameters.get('language') === 'en' ? 'en' : 'ru';
+  boot?.snapshot?.language ??
+  (parameters.get('language') === 'en' ? 'en' : 'ru');
 const session = new SheetSession(
   blank ? (language === 'ru' ? 'Лист1' : 'Sheet1') : undefined,
+  boot?.snapshot && readDocument(boot.snapshot.document),
 );
+session.dirty = boot?.snapshot?.dirty ?? false;
+let fileName = boot?.name;
 const book = session.book;
 const transfer = rangeTransfer(session);
-let sheet = blank ? book.getSheetNames()[0] : 'Практика';
-let selected = blank ? 'A1' : 'H2';
+let sheet =
+  boot?.snapshot?.sheet ?? (blank ? book.getSheetNames()[0] : 'Практика');
+let selected = boot?.snapshot?.address ?? (blank ? 'A1' : 'H2');
 const selections = new Map<string, string>();
 let draft = false;
+let restoring = true;
 const formula = query<HTMLInputElement>('#formula');
 const address = query<HTMLInputElement>('#address');
 const grid = query<HTMLTableElement>('#grid');
@@ -59,6 +79,7 @@ function restoreCell(original: WizardContext) {
   formula.value = original.formula;
   draft = formula.value !== session.source(sheet, selected, language);
   if (draft) editing.preview();
+  checkpoint();
   cells.get(selected)?.scrollIntoView({
     block: 'nearest',
     inline: 'nearest',
@@ -114,6 +135,7 @@ const editing = cellEditor(
   () => language,
   () => {
     draft = true;
+    checkpoint();
   },
   tab => {
     if (!commit()) return;
@@ -150,11 +172,7 @@ function render() {
   draft = false;
   query('#selection').textContent = `${sheet}, ${selected}`;
   query<HTMLButtonElement>('#undo').disabled = !session.canUndo;
-  const title = blank
-    ? `${words[language].newDocument} ${parameters.get('document') || '1'}`
-    : words[language].title;
-  document.title = `${session.dirty ? '* ' : ''}${title} - formatted Sheets`;
-  query('#title').textContent = `${session.dirty ? '* ' : ''}${title}`;
+  updateTitle();
   document
     .querySelectorAll<HTMLButtonElement>('[data-sheet]')
     .forEach(button =>
@@ -165,7 +183,84 @@ function render() {
     );
   status(words[language].ready);
   selection.paint();
+  checkpoint();
 }
+function updateTitle() {
+  const title =
+    fileName ??
+    (blank
+      ? `${words[language].newDocument} ${parameters.get('document') || '1'}`
+      : words[language].title);
+  const text = `${session.dirty || draft ? '* ' : ''}${title}`;
+  document.title = `${text} - formatted Sheets`;
+  query('#title').textContent = text;
+}
+function checkpoint() {
+  updateTitle();
+  if (!window.sheetDesktop || restoring) return false;
+  const snapshot: SheetSnapshot = {
+    document: documentOf(book),
+    language,
+    sheet,
+    address: selected,
+    dirty: session.dirty,
+    ...(draft
+      ? {
+          draft: {
+            ...(referenceHome ?? {sheet, address: selected}),
+            text: formula.value,
+          },
+        }
+      : {}),
+  };
+  const saved = window.sheetDesktop.checkpoint(JSON.stringify(snapshot));
+  query('#recovery').textContent =
+    words[language][saved ? 'recoverySaved' : 'recoveryFailed'];
+  return saved;
+}
+let fileBusy = false;
+async function fileCommand(command: string) {
+  if (
+    fileBusy ||
+    rangePicker.active ||
+    document.body.inert ||
+    sheetDialog.open ||
+    !commit()
+  )
+    return;
+  if (!window.sheetDesktop) {
+    status(words[language].desktopOnly);
+    return;
+  }
+  fileBusy = true;
+  const text = JSON.stringify(documentOf(book));
+  try {
+    const result = await window.sheetDesktop.file(command, text);
+    if (result.error) {
+      status(
+        words[language][
+          result.error === 'conflict'
+            ? 'fileConflict'
+            : result.error === 'opened'
+              ? 'fileOpened'
+              : 'fileFailed'
+        ],
+      );
+    } else if (result.name) {
+      fileName = result.name;
+      if (text === JSON.stringify(documentOf(book))) session.dirty = false;
+      checkpoint();
+      // Do not clear edits typed while a native save dialog was open.
+      if (!draft) render();
+    }
+  } finally {
+    fileBusy = false;
+  }
+}
+for (const command of ['open', 'save', 'save-as'])
+  query(`#file-${command}`).onclick = () => {
+    void fileCommand(command);
+  };
 function commit() {
   returnToReference();
   if (!draft) return true;
@@ -216,6 +311,7 @@ function addTab(name: string) {
       formula.focus();
       formula.setSelectionRange(text.length, text.length);
       draft = true;
+      checkpoint();
       return;
     }
     if (commit()) {
@@ -293,6 +389,10 @@ query('#sheets').addEventListener('contextmenu', event => {
     );
 });
 window.sheetDesktop?.onCommand((command, target) => {
+  if (['open', 'save', 'save-as'].includes(command)) {
+    void fileCommand(command);
+    return;
+  }
   if (command === 'new-document') {
     window.sheetDesktop?.newDocument(language);
     return;
@@ -491,6 +591,7 @@ query('#undo').onclick = () => {
 };
 function translate() {
   document.documentElement.lang = language;
+  window.sheetDesktop?.setLanguage(language);
   document.querySelectorAll<HTMLElement>('[data-label]').forEach(element => {
     element.textContent =
       words[language][element.dataset.label as keyof typeof words.ru];
@@ -548,9 +649,24 @@ document.addEventListener('keydown', event => {
   }
 });
 window.addEventListener('beforeunload', event => {
-  if (session.dirty || draft) {
+  if ((session.dirty || draft) && !checkpoint()) {
     event.preventDefault();
     event.returnValue = '';
   }
 });
 translate();
+if (boot?.snapshot?.draft) {
+  const pending = boot.snapshot.draft;
+  sheet = pending.sheet;
+  selected = pending.address;
+  render();
+  formula.value = pending.text;
+  draft = true;
+  editing.preview();
+}
+restoring = false;
+checkpoint();
+if (boot?.snapshot)
+  requestAnimationFrame(() =>
+    cells.get(selected)?.scrollIntoView({block: 'nearest', inline: 'nearest'}),
+  );
