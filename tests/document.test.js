@@ -39,7 +39,7 @@ test('Malformed, duplicate, invisible and oversized cells are rejected without c
     {version: 2},
     {sheets: []},
     {sheets: ['Лист', 'лист']},
-    {cells: [{sheet: 'Лист', address: 'AA1', input: 1}]},
+    {cells: [{sheet: 'Лист', address: 'AAA1', input: 1}]},
     {cells: [{sheet: 'Лист', address: 'A1001', input: 1}]},
     {cells: [{sheet: 'Unknown', address: 'A1', input: 1}]},
     {cells: [{sheet: 'Лист', address: 'A1', input: {evil: 1}}]},
@@ -62,7 +62,7 @@ test('Recovery includes an uncommitted formula, language and active sheet', () =
   assert.deepEqual(readSnapshot(state), state);
   assert.throws(() => readSnapshot({...state, language: 'xx'}));
   assert.throws(() =>
-    readSnapshot({...state, draft: {...state.draft, address: 'AA2'}}),
+    readSnapshot({...state, draft: {...state.draft, address: 'AAA2'}}),
   );
   session.write('Sheet1', 'A1', '10');
   session.dirty = false;

@@ -22,7 +22,13 @@ const json = data => new Response(JSON.stringify(data));
 for (const domain of ['retail', 'library', 'courses']) {
   test(`AI ${domain}: replay, numeric checks and non-thematic data stay deterministic`, () => {
     for (const difficulty of ['basic', 'advanced']) {
-      const config = {domain, difficulty, seed: 'AI-TEST', size: 60};
+      const config = {
+        domain,
+        difficulty,
+        seed: 'AI-TEST',
+        size: 60,
+        generatorVersion: 2,
+      };
       const base = generateDataset(config);
       const themed = generateDataset({
         ...config,

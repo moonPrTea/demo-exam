@@ -1,5 +1,5 @@
 export type DomainId = 'retail' | 'library' | 'courses';
-export type Difficulty = 'basic' | 'advanced';
+export type Difficulty = 'basic' | 'medium' | 'advanced';
 export type Random = () => number;
 export type Cell = string | number;
 export type Row = Record<string, Cell>;
@@ -14,7 +14,7 @@ export type ConfigInput = {
 
 export interface Config {
   aiTheme?: AiTheme;
-  generatorVersion?: 1 | 2;
+  generatorVersion?: 1 | 2 | 3;
   domain: DomainId;
   seed: string;
   size: number;
@@ -63,6 +63,7 @@ export interface Task {
 }
 
 export interface Dataset extends SourceData {
+  modelSources?: CsvSource[];
   sources?: CsvSource[];
   targetTableCount?: number;
   version: number;

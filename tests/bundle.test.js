@@ -1,14 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  generateDataset,
-  exportFiles,
+  generateDataset as generate,
+  exportFiles as exportCurrent,
   gradeTasks,
   normalizeConfig,
 } from '../build/src/core/generator.js';
 import {validateState} from '../build/src/core/storage.js';
 import {startSession} from '../build/src/core/session.js';
 import {themeFixture} from './ai-fixture.js';
+const generateDataset = input => generate({...input, generatorVersion: 2});
+const exportFiles = (input, delimiter) =>
+  exportCurrent({...input, generatorVersion: 2}, delimiter);
 
 function readCsv(text, delimiter) {
   const rows = [];
@@ -367,10 +370,10 @@ test('new sources change with the seed, preserve whitespace exercises and suppor
       });
     }
   }
-  assert.throws(() => normalizeConfig({generatorVersion: 3}));
+  assert.throws(() => normalizeConfig({generatorVersion: 4}));
 });
 
-test('unversioned saved attempts retain v1 while new practice uses v2', () => {
+test('unversioned saved attempts retain v1 while new practice uses v3', () => {
   const config = {domain: 'retail', seed: 'OLD', size: 60, difficulty: 'basic'};
   const session = startSession(config, 45, 1000);
   const state = validateState({
@@ -384,11 +387,11 @@ test('unversioned saved attempts retain v1 while new practice uses v2', () => {
     quiz: null,
     quizHistory: [],
   });
-  assert.equal(state.config.generatorVersion, 2);
+  assert.equal(state.config.generatorVersion, 3);
   assert.equal(state.session.config.generatorVersion, 1);
-  assert.equal(generateDataset(state.session.config).version, 1);
-  assert.equal(exportFiles(state.session.config).length, 3);
+  assert.equal(generate(state.session.config).version, 1);
+  assert.equal(exportCurrent(state.session.config).length, 3);
   const newSession = startSession(normalizeConfig(), 45);
-  assert.equal(newSession.config.generatorVersion, 2);
-  assert.equal(exportFiles(newSession.config).length, 5);
+  assert.equal(newSession.config.generatorVersion, 3);
+  assert.equal(exportCurrent(newSession.config).length, 6);
 });

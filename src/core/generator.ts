@@ -10,9 +10,10 @@ import type {
 import {random, integer, pick, shuffle} from './random.js';
 import {toCsv} from './csv.js';
 import {generateBundle} from './source-bundle.js';
+import {examSources} from './exam-sources.js';
 import {validateAiTheme, WINFORMS_LAYOUT_RULE} from './ai-theme.js';
 
-export const GENERATOR_VERSION = 2;
+export const GENERATOR_VERSION = 3;
 export const domains: Domain[] = [
   {
     id: 'retail',
@@ -70,8 +71,10 @@ export function normalizeConfig(input: ConfigInput = {}): Config {
       ? 1
       : input.generatorVersion === '2'
         ? 2
-        : (input.generatorVersion ?? GENERATOR_VERSION);
-  if (version !== 1 && version !== 2)
+        : input.generatorVersion === '3'
+          ? 3
+          : (input.generatorVersion ?? GENERATOR_VERSION);
+  if (version !== 1 && version !== 2 && version !== 3)
     throw new Error('Неизвестная версия генератора');
   const config = {
     domain: input.domain ?? 'retail',
@@ -89,10 +92,10 @@ export function normalizeConfig(input: ConfigInput = {}): Config {
     throw new Error('Количество строк должно быть от 20 до 500.');
   if (
     typeof config.difficulty !== 'string' ||
-    !['basic', 'advanced'].includes(config.difficulty)
+    !['basic', 'medium', 'advanced'].includes(config.difficulty)
   )
     throw new Error('Неизвестная сложность.');
-  if (input.aiTheme !== undefined && version !== 2)
+  if (input.aiTheme !== undefined && version === 1)
     throw new Error('AI-темы доступны только для формата 3 CSV');
   const result = {...config, generatorVersion: version} as Config;
   if (input.aiTheme !== undefined)
@@ -281,6 +284,8 @@ export function generateDataset(input: ConfigInput): Dataset {
   const config = normalizeConfig(input);
   const domain = domains.find(d => d.id === config.domain)!;
   if (config.generatorVersion === 2) return generateBundle(config, domain);
+  if (config.generatorVersion === 3)
+    return examSources(generateBundle(config, domain));
   const rng = random(
     `1:${config.domain}:${config.seed}:${config.size}:${config.difficulty}`,
   );
@@ -348,7 +353,7 @@ export const checklist = [
 ];
 
 export function assignment(dataset: Dataset) {
-  if (dataset.version === 2) return bundleAssignment(dataset);
+  if (dataset.version >= 2) return bundleAssignment(dataset);
   return `# ${dataset.domain.name} - вариант ${dataset.config.seed}\n\nГенератор v${dataset.version}. Все записи вымышлены.\n\n${dataset.domain.description}\n${dataset.domain.grain}\n\n## Условия\n\n${dataset.rules.map(x => `- ${x}`).join('\n')}\n\n## Задание\n\nСамостоятельно выдели сущности и связи, приведи данные к 3НФ, назначь PK/FK. Сохрани рабочую книгу .ods и отдельный CSV для каждой таблицы. Не ограничивайся удалением повторов. Объясни свои решения.\n\n## Выборки\n\nВыполни в Calc или напиши SQL после создания БД. В приложении проверяются только числовые результаты, не текст SQL.\n\n${dataset.tasks.map((x, i) => `${i + 1}. ${x.prompt}`).join('\n')}\n\n## Вопросы для объяснения\n\n${dataset.questions.map(x => `- ${x}`).join('\n')}\n\n## Самопроверка\n\n${checklist.map(x => `- [ ] ${x}`).join('\n')}\n\nЧек-лист не является автоматической оценкой нормализации или официальной оценкой экзамена.\n`;
 }
 
@@ -406,20 +411,20 @@ function bundleAssignment(dataset: Dataset) {
   return (
     [
       `# ${dataset.domain.name} - вариант ${dataset.config.seed}`,
-      `Генератор v2. Все записи вымышлены. ${dataset.domain.description}`,
+      `Генератор v${dataset.version}. Все записи вымышлены. ${dataset.domain.description}`,
       ...(dataset.config.aiTheme
         ? [
             'Описание и тематические названия предложены локальной моделью. Проверь смысл перед использованием; структура и числовые ответы формируются приложением',
           ]
         : []),
-      'Учебная адаптация описания предметной области из Прил_1_ОЗ_КИМ_09.02.07-2-2027, не официальный экзаменационный вариант. Формат тренажёра: три CSV и 12 таблиц; количество файлов из примера не копируется',
-      '## Три исходных CSV',
+      `Учебный вариант: ${sourceFiles(dataset).length} исходных CSV и 12 таблиц; не официальный экзаменационный вариант.`,
+      '## Исходные CSV',
       ...sourceFiles(dataset).map(
         source =>
           `- ${source.name}: ${source.rows.length} строк. ${source.grain}`,
       ),
       '## Задание',
-      'Самостоятельно нормализуй три связанных исходника в 12 таблиц, включая справочники и связи. Определи зависимости, назначь устойчивые PK, сопоставь FK через ИНДЕКС + ПОИСКПОЗ с точным поиском. Сохрани рабочую .ods и 12 отдельных CSV для импорта в PostgreSQL. Готовая схема и SQL не выдаются. Число таблиц само по себе не доказывает 3НФ: объясни каждую сущность и связь',
+      'Самостоятельно нормализуй исходные данные в 12 таблиц, включая справочники и связи. Определи зависимости, назначь устойчивые PK, сопоставь FK через ИНДЕКС + ПОИСКПОЗ с точным поиском. Сохрани рабочую .ods и 12 отдельных CSV для импорта в PostgreSQL. Готовая схема и SQL не выдаются. Число таблиц само по себе не доказывает 3НФ: объясни каждую сущность и связь',
       '## Порядок работы',
       [
         '1. Сохрани исходники отдельно. При импорте проверь кодировку, разделитель, заголовки и текстовый тип кодов с ведущими нулями',

@@ -13,7 +13,7 @@ const esc = (value: string) =>
   );
 
 export function normalizationView(data: Dataset) {
-  if (data.version !== 2) return '';
+  if (data.version < 2) return '';
   return html`<section class="panel normalization-panel">
     <h2>Проверить свои таблицы</h2>
     <p>

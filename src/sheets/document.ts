@@ -21,7 +21,7 @@ export interface DocumentBoot {
   name?: string;
 }
 export const gridAddress = (value: unknown): value is string =>
-  typeof value === 'string' && /^[A-Z](?:[1-9]\d{0,2}|1000)$/.test(value);
+  typeof value === 'string' && /^[A-Z]{1,2}(?:[1-9]\d{0,2}|1000)$/.test(value);
 export const documentOf = (book: Workbook): SheetDocument => ({
   format: 'formatted',
   version: 1,

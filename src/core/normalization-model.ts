@@ -8,17 +8,18 @@ interface Relation {
 }
 
 export function normalizationModel(data: Dataset): Relation[] {
-  if (data.version !== 2 || !data.sources)
+  if (data.version < 2 || !data.sources)
     throw new Error('Проверка доступна для вариантов с тремя CSV');
-  const [catalog, users, operations] = data.sources.map(source =>
-    source.rows.map(row =>
-      Object.fromEntries(
-        Object.entries(row).map(([k, v]) => [
-          k,
-          typeof v === 'string' ? v.trim() : v,
-        ]),
+  const [catalog, users, operations] = (data.modelSources ?? data.sources).map(
+    source =>
+      source.rows.map(row =>
+        Object.fromEntries(
+          Object.entries(row).map(([k, v]) => [
+            k,
+            typeof v === 'string' ? v.trim() : v,
+          ]),
+        ),
       ),
-    ),
   );
   const relations: Relation[] = [];
   const add = (name: string, rows: Row[], fields: string, parents = '') => {

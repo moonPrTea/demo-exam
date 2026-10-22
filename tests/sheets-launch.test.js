@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {columnName} from '../build/src/spreadsheet/address.js';
 import {launchSnapshot, gridSize} from '../build/src/sheets/launch.js';
 import {
   readSnapshot,
@@ -40,7 +41,7 @@ for (const domain of ['retail', 'library', 'courses']) {
       for (let r = 0; r < source.rows.length; r++) {
         source.headers.forEach((header, c) =>
           assert.deepEqual(
-            book.getCell(sheet, String.fromCharCode(65 + c) + (r + 2)),
+            book.getCell(sheet, columnName(c + 1) + (r + 2)),
             source.rows[r][header],
           ),
         );
