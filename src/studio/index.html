@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="../theme-boot.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: https://api.nuget.org; worker-src 'self' blob:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <title>formatted Studio</title>
+    <link rel="stylesheet" href="editor.css" />
+    <link rel="stylesheet" href="xterm.css" />
+    <link rel="stylesheet" href="studio.css" />
+    <link rel="stylesheet" href="winforms.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <img src="../assets/studio.png" alt="Studio" /><button
+        id="project-toggle"
+      >
+        <span id="project-name">Чудо Обувь</span>
+        <span data-icon="chevron"></span>
+      </button>
+      <details id="file-menu" hidden>
+        <summary>Файл</summary>
+        <div class="menu">
+          <button data-command="open">Открыть проект…</button
+          ><button data-command="save">Сохранить проект… <kbd>⌘S</kbd></button
+          ><button data-command="export">Экспорт C#…</button>
+        </div>
+      </details>
+      <span class="spacer"></span>
+      <button id="run" aria-label="Запустить C#" title="Запустить C#">
+        <span data-icon="run"></span>Запустить
+      </button>
+      <button
+        id="stop"
+        aria-label="Остановить C#"
+        data-icon="stop"
+        hidden
+      ></button>
+      <span id="service-state">Подключение C#…</span
+      ><button id="theme" aria-label="Сменить тему" data-icon="theme"></button>
+    </header>
+    <div id="project-menu" class="menu" hidden aria-label="Проект">
+      <button data-command="new">
+        <span data-icon="plus"></span>Новый проект…
+      </button>
+      <button data-command="open">
+        <span data-icon="project"></span>Открыть проект…
+      </button>
+      <button data-command="save">
+        <span data-icon="save"></span>Сохранить проект…
+      </button>
+      <button data-command="export">
+        <span data-icon="export"></span>Экспорт C#…
+      </button>
+      <div class="project-current">
+        <strong id="project-current-name">Чудо Обувь</strong
+        ><span id="project-path">Не сохранён в файл</span>
+      </div>
+    </div>
+    <div class="workspace">
+      <nav class="rail" aria-label="Панели редактора">
+        <button
+          id="files-toggle"
+          aria-label="Проект"
+          data-icon="project"
+        ></button
+        ><button
+          id="toolbox-toggle"
+          aria-label="Элементы"
+          data-icon="controls"
+        ></button
+        ><button
+          id="properties-toggle"
+          aria-label="Свойства"
+          data-icon="properties"
+        ></button
+        ><span class="spacer"></span
+        ><button
+          id="problems-toggle"
+          aria-label="Ошибки"
+          data-icon="problems"
+        ></button>
+        <button
+          id="packages-toggle"
+          aria-label="Пакеты NuGet"
+          data-icon="package"
+        ></button>
+        <button
+          id="console-toggle"
+          aria-controls="console"
+          aria-expanded="false"
+          title="Консоль"
+          aria-label="Консоль"
+          data-icon="terminal"
+        ></button>
+      </nav>
+      <aside class="sidebar">
+        <header>
+          <span id="sidebar-title">Проект</span
+          ><button
+            id="sidebar-close"
+            aria-label="Скрыть панель"
+            data-icon="close"
+          ></button>
+        </header>
+        <div id="files"></div>
+        <div id="toolbox" hidden>
+          <input
+            id="control-search"
+            type="search"
+            placeholder="Найти элемент"
+            aria-label="Найти элемент"
+          />
+          <div id="control-list"></div>
+        </div>
+      </aside>
+      <main id="groups" data-single="code">
+        <section class="code-group">
+          <header id="tabs"></header>
+          <div id="editor"></div>
+        </section>
+        <button
+          id="divider"
+          aria-label="Изменить ширину областей"
+          hidden
+        ></button>
+        <section class="form-group" hidden>
+          <header class="form-tab">
+            <button id="form-menu">
+              <span data-icon="form"></span>Редактор формы<span
+                data-icon="chevron"
+              ></span>
+            </button>
+            <button
+              id="form-close"
+              aria-label="Закрыть редактор формы"
+              data-icon="close"
+            ></button>
+            <span class="spacer"></span>
+            <button
+              id="inspect"
+              aria-label="Свойства элемента"
+              data-icon="properties"
+            ></button>
+          </header>
+          <div id="sync-warning" role="status" hidden></div>
+          <div class="design-workspace">
+            <div id="canvas-viewport">
+              <div id="canvas-stage">
+                <div id="form-window">
+                  <header>
+                    <span id="form-caption"></span
+                    ><span class="window-chrome" aria-hidden="true"
+                      ><span data-icon="minimize"></span
+                      ><span data-icon="maximize"></span
+                      ><span data-icon="close"></span
+                    ></span>
+                  </header>
+                  <div id="canvas"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <footer>
+            <button id="add-control">
+              <span data-icon="plus"></span>Элемент</button
+            ><span id="geometry">440 × 300</span><span id="zoom">100%</span>
+          </footer>
+        </section>
+      </main>
+    </div>
+    <dialog id="inspector" aria-labelledby="properties-heading">
+      <header>
+        <div>
+          <strong id="properties-heading">Свойства элемента</strong>
+          <div id="selection-title"></div>
+        </div>
+        <button
+          id="inspector-close"
+          aria-label="Закрыть свойства"
+          data-icon="close"
+        ></button>
+      </header>
+      <div id="property-fields"></div>
+      <footer><button id="inspector-done">Готово</button></footer>
+    </dialog>
+    <section id="console" hidden aria-label="Вывод программы">
+      <div
+        id="console-resize"
+        role="separator"
+        aria-label="Высота консоли"
+        tabindex="0"
+      ></div>
+      <header>
+        <button id="terminal-tab" aria-pressed="true">
+          <span data-icon="terminal"></span>Bash
+        </button>
+        <button id="output-tab" aria-pressed="false">Вывод C#</button>
+        <span class="spacer"></span>
+        <button
+          id="terminal-folder"
+          aria-label="Выбрать рабочую папку"
+          data-icon="project"
+        ></button>
+        <button
+          id="terminal-restart"
+          aria-label="Перезапустить Bash"
+          data-icon="restart"
+        ></button>
+        <button id="console-clear">Очистить</button
+        ><button id="console-close" aria-label="Скрыть консоль">×</button>
+      </header>
+      <div id="shell-terminal" aria-label="Bash терминал"></div>
+      <pre id="console-output" tabindex="0" aria-label="Вывод C#" hidden></pre>
+    </section>
+    <section id="problems" hidden>
+      <header>Диагностика C#</header>
+      <div id="diagnostics"></div>
+    </section>
+    <footer class="statusbar">
+      <span id="file-status">LoginForm.cs</span
+      ><span id="message" role="status">Загрузка…</span>
+    </footer>
+    <div id="tab-menu" class="menu" hidden>
+      <button data-layout="code">Открыть код</button
+      ><button data-layout="form">Редактор формы</button
+      ><button data-layout="right">Форма справа</button
+      ><button data-layout="left">Форма слева</button>
+    </div>
+    <dialog id="packages">
+      <header>
+        <strong>NuGet</strong><span class="spacer"></span
+        ><button id="packages-close" aria-label="Закрыть NuGet"></button>
+      </header>
+      <nav>
+        <button data-package-tab="search" aria-pressed="true">Каталог</button
+        ><button data-package-tab="installed" aria-pressed="false">
+          Установленные
+        </button>
+      </nav>
+      <div id="package-searchbar">
+        <input
+          id="package-query"
+          placeholder="Название пакета"
+          aria-label="Название пакета"
+        /><button id="package-search">Найти</button>
+      </div>
+      <p id="package-status" role="status"></p>
+      <div id="package-results"></div>
+    </dialog>
+    <script type="module" src="editor.js"></script>
+  </body>
+</html>

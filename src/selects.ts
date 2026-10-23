@@ -29,8 +29,12 @@ function positionMenu(control: SelectControl) {
   const rect = control.trigger.getBoundingClientRect();
   const below = innerHeight - rect.bottom - 12;
   const above = rect.top - 12;
+  // Measure after setting the final width: wrapping changes the menu height.
+  // Include borders, otherwise even a short list gets a two-pixel scrollbar.
+  control.menu.style.width = `${Math.min(rect.width, innerWidth - 16)}px`;
+  control.menu.style.maxHeight = 'none';
   const height = Math.min(
-    control.menu.scrollHeight,
+    control.menu.offsetHeight,
     280,
     Math.max(below, above),
   );
@@ -104,7 +108,8 @@ function openMenu(control: SelectControl) {
     menu.append(item);
     return item;
   });
-  document.body.append(menu);
+  // Keep controls in a modal's focus scope while the popover uses the top layer.
+  (control.select.closest('dialog') ?? document.body).append(menu);
   if (menu.showPopover) menu.showPopover();
   openControl = control;
   control.trigger.setAttribute('aria-expanded', 'true');

@@ -10,10 +10,20 @@ export interface PackageReference {
   version: string;
 }
 export interface PackageResult extends PackageReference {
+  iconUrl?: string;
   authors?: string;
   downloads?: number;
   description: string;
   versions: string[];
+}
+// Only hosted NuGet icons; never arbitrary third-party tracking URLs.
+export function packageIconUrl(value: unknown): string | undefined {
+  return typeof value === 'string' &&
+    /^https:\/\/api\.nuget\.org\/v3-flatcontainer\/[a-z0-9_.-]+\/[a-z0-9_.+-]+\/icon$/i.test(
+      value,
+    )
+    ? value
+    : undefined;
 }
 export interface StudioProject {
   format: 'formatted-studio';
@@ -88,11 +98,18 @@ export interface Completion {
   detail: string;
 }
 export interface StudioApi {
+  terminal(
+    command: 'start' | 'write' | 'resize' | 'stop' | 'folder' | 'ack',
+    value?: unknown,
+  ): Promise<{cwd: string} | undefined>;
+  onTerminal(callback: (event: {data: string; exited?: boolean}) => void): void;
+  onCommand(callback: (command: string) => void): void;
+  onOutput(callback: (text: string) => void): void;
   boot(): Promise<{project: StudioProject | null; service: boolean}>;
   query(request: StudioRequest): Promise<unknown>;
   checkpoint(project: StudioProject): Promise<void>;
   file(
-    command: 'open' | 'save' | 'export',
+    command: 'new' | 'open' | 'save' | 'export',
     project: StudioProject,
   ): Promise<{canceled?: boolean; project?: StudioProject; path?: string}>;
   close(project: StudioProject): Promise<void>;

@@ -36,6 +36,7 @@ async function download(url: string, limit: number) {
   return Buffer.concat(chunks);
 }
 export async function searchPackages(query: string): Promise<PackageResult[]> {
+  const {packageIconUrl} = await import('../src/studio/model.js');
   if (typeof query !== 'string' || query.length > 100)
     throw new Error('Слишком длинный запрос');
   const index = JSON.parse(
@@ -68,6 +69,7 @@ export async function searchPackages(query: string): Promise<PackageResult[]> {
     }
     packages.push({
       ...ref,
+      iconUrl: packageIconUrl(p.iconUrl),
       description: String(p.description ?? '').slice(0, 350),
       authors: (Array.isArray(p.authors)
         ? p.authors.join(', ')
