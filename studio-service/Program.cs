@@ -116,7 +116,9 @@ while (await Console.In.ReadLineAsync() is { } line)
             var edit = root.GetProperty("edit");
             result = edit.GetProperty("kind").GetString() == "rename"
                 ? await ControlRename.Apply(project, edit.GetProperty("name").GetString()!, edit.GetProperty("newName").GetString()!, token)
-                : DesignerSync.Edit(files.GetProperty("LoginForm.Designer.cs").GetString()!, edit);
+                : edit.GetProperty("kind").GetString() == "delete"
+                    ? await ControlDelete.Apply(project, edit.GetProperty("name").GetString()!, token)
+                    : DesignerSync.Edit(files.GetProperty("LoginForm.Designer.cs").GetString()!, edit);
         }
         else throw new InvalidOperationException("Unknown operation");
         await Console.Out.WriteLineAsync(JsonSerializer.Serialize(new { id, result }, json));

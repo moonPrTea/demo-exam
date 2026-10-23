@@ -10,6 +10,8 @@ export interface PackageReference {
   version: string;
 }
 export interface PackageResult extends PackageReference {
+  authors?: string;
+  downloads?: number;
   description: string;
   versions: string[];
 }
@@ -57,6 +59,7 @@ export interface Analysis {
   form: FormModel;
 }
 export type DesignerEdit =
+  | {kind: 'delete'; name: string}
   | {
       kind: 'geometry';
       name: string;

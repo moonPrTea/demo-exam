@@ -69,6 +69,14 @@ export async function searchPackages(query: string): Promise<PackageResult[]> {
     packages.push({
       ...ref,
       description: String(p.description ?? '').slice(0, 350),
+      authors: (Array.isArray(p.authors)
+        ? p.authors.join(', ')
+        : String(p.authors ?? '')
+      ).slice(0, 180),
+      downloads:
+        Number.isSafeInteger(p.totalDownloads) && p.totalDownloads >= 0
+          ? p.totalDownloads
+          : 0,
       versions: [...new Set([ref.version, ...versions])],
     });
   }
