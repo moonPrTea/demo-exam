@@ -385,13 +385,50 @@ async function run() {
   console.log(
     '5. Active-sheet deletion selects a survivor, last-sheet deletion is disabled and guarded in the renderer',
   );
-  dialog.showMessageBoxSync = () => {
+  let confirmation;
+  const recoveryDirectory = path.join(directory, 'sheet-recovery');
+  await fs.rename(recoveryDirectory, recoveryDirectory + '-backup');
+  await fs.writeFile(
+    recoveryDirectory,
+    'Simulated unavailable recovery directory',
+  );
+  dialog.showMessageBoxSync = (window, options) => {
     confirmations++;
+    confirmation = {window, options};
     return 0;
   };
+  for (const [window, language, change] of [
+    [third, 'en', false],
+    [original, 'ru', false],
+    [third, 'ru', true],
+    [third, 'en', true],
+  ]) {
+    if (change) await click(window, `[data-language="${language}"]`);
+    const count = confirmations;
+    window.close();
+    await wait(() => confirmations === count + 1);
+    assert.equal(window.isDestroyed(), false);
+    assert.equal(confirmation.window, window);
+    assert.deepEqual(
+      confirmation.options.buttons,
+      language === 'ru' ? ['Остаться', 'Закрыть'] : ['Stay', 'Close'],
+    );
+    assert.equal(
+      confirmation.options.message,
+      language === 'ru' ? 'Изменения не сохранены' : 'Unsaved changes',
+    );
+    assert.equal(
+      confirmation.options.detail,
+      language === 'ru'
+        ? 'Не удалось записать копию восстановления. Не закрывай окно: сохрани книгу в файл'
+        : 'Recovery could not be written. Keep this window open and save the workbook to a file',
+    );
+    assert.equal(confirmation.options.cancelId, 0);
+  }
+  await evaluate(third, 'window.sheetDesktop.setLanguage("invalid")');
   third.close();
-  await wait(() => confirmations === 1);
-  assert.equal(third.isDestroyed(), false);
+  await wait(() => confirmations === 5);
+  assert.equal(confirmation.options.message, 'Unsaved changes');
   dialog.showMessageBoxSync = () => 1;
   third.close();
   await wait(() => third.isDestroyed());

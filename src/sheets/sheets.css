@@ -392,3 +392,42 @@ footer {
     display: none;
   }
 }
+@media (max-height: 360px) {
+  header button,
+  header summary,
+  nav button {
+    min-height: 26px;
+    padding-block: 3px;
+  }
+  header,
+  :root .window-bar {
+    height: 28px;
+    min-height: 28px;
+    padding-block: 0;
+    font-size: 11px;
+  }
+  :root .window-bar img {
+    width: 20px;
+    height: 20px;
+  }
+  #formula-bar {
+    padding-block: 3px 6px;
+  }
+  #formula-bar input,
+  #formula-bar button,
+  #formula-bar #function-wizard {
+    height: 26px;
+    min-height: 26px;
+    padding-block: 3px;
+    line-height: 18px;
+  }
+  footer {
+    min-height: 22px;
+    flex-wrap: nowrap;
+    gap: 8px;
+    font-size: 12px;
+  }
+  #recovery {
+    display: none;
+  }
+}

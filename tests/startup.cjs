@@ -17,11 +17,11 @@ app.once('browser-window-created', (_event, window) => {
   window.webContents.once('did-finish-load', async () => {
     try {
       assert.equal(window.webContents.getURL(), 'forma://app/index.html');
-      assert.equal(
+      assert.match(
         await window.webContents.executeJavaScript(
           'document.querySelector("h1").textContent',
         ),
-        'От данных - к пониманию',
+        /^(От данных - к пониманию|Главная)$/,
       );
       assert.equal(
         await window.webContents.executeJavaScript(

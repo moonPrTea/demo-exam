@@ -77,8 +77,12 @@ async function run() {
     }
   };
   const click = async selector => {
-    await evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
-    return evaluate(`document.querySelector(${JSON.stringify(selector)}).click()`);
+    await evaluate(
+      'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
+    );
+    return evaluate(
+      `document.querySelector(${JSON.stringify(selector)}).click()`,
+    );
   };
   const text = selector =>
     evaluate(
@@ -155,12 +159,22 @@ async function run() {
   assert.match(await text('.lesson-question'), /Верно/);
   await capture('calc-lesson');
   assert.equal(await evaluate('document.querySelector(".sidebar-note")'), null);
-  assert.equal(await evaluate('document.querySelectorAll(".calc-option").length'), 3);
+  assert.equal(
+    await evaluate('document.querySelectorAll(".calc-option").length'),
+    3,
+  );
   for (const width of [1440, 1000, 900]) {
     window.setContentSize(width, 900);
-    await evaluate(`document.querySelector('.calc-launch').scrollIntoView({block:'start'});`);
+    await evaluate(
+      `document.querySelector('.calc-launch').scrollIntoView({block:'start'});`,
+    );
     await capture(`calc-options-${width}`);
-    assert.equal(await evaluate(`document.documentElement.scrollWidth <= innerWidth && [...document.querySelectorAll('.calc-option')].every(e => getComputedStyle(e).gap === '16px' && e.scrollWidth <= e.clientWidth)`), true);
+    assert.equal(
+      await evaluate(
+        `document.documentElement.scrollWidth <= innerWidth && [...document.querySelectorAll('.calc-option')].every(e => getComputedStyle(e).gap === '16px' && e.scrollWidth <= e.clientWidth)`,
+      ),
+      true,
+    );
   }
   window.setContentSize(1440, 960);
   await click('[data-action="open-calc"]');
@@ -231,7 +245,9 @@ async function run() {
     await evaluate(
       'getComputedStyle(document.querySelector(".answer")).backgroundColor',
     ),
-    'rgb(241, 244, 249)',
+    await evaluate(
+      `(() => { const probe = document.createElement('span'); probe.style.backgroundColor = 'var(--soft)'; document.body.append(probe); const color = getComputedStyle(probe).backgroundColor; probe.remove(); return color; })()`,
+    ),
   );
   window.setSize(900, 800);
   await capture('quiz-formulas-900');
@@ -271,16 +287,21 @@ async function run() {
   await click('[data-view="generator"]');
   for (const width of [1440, 1000, 900]) {
     window.setContentSize(width, 960);
-    await evaluate(`document.querySelector('.normalization-panel').scrollIntoView({block:'start'}); document.querySelector('#normalization-form input').focus({preventScroll:true});`);
+    await evaluate(
+      `document.querySelector('.normalization-panel').scrollIntoView({block:'start'}); document.querySelector('#normalization-form input').focus({preventScroll:true});`,
+    );
     await capture(`upload-${width}`);
-    assert.equal(await evaluate(`(() => {
+    assert.equal(
+      await evaluate(`(() => {
       const form = document.querySelector('#normalization-form');
       const picker = form.querySelector('.file-picker');
       const button = form.querySelector('button[type=submit]');
       const label = form.querySelector('.file-picker-button');
       const select = form.querySelector('.select-trigger');
       return document.documentElement.scrollWidth <= innerWidth && picker.scrollWidth <= picker.clientWidth && label.getBoundingClientRect().height <= picker.clientHeight && button.getBoundingClientRect().width < 300 && picker.getBoundingClientRect().height === select.getBoundingClientRect().height;
-    })()`), true);
+    })()`),
+      true,
+    );
   }
   window.setContentSize(1440, 960);
   assert.equal(await text('[data-file-summary]'), 'Файлы не выбраны');
@@ -315,7 +336,9 @@ async function run() {
   );
   await capture('normalization');
   assert.equal(await text('[data-file-summary]'), 'Выбрано файлов: 13');
-  await evaluate(`(() => {const input = document.querySelector('#normalization-form input'); input.value = ''; input.dispatchEvent(new Event('change', {bubbles:true}));})()`);
+  await evaluate(
+    `(() => {const input = document.querySelector('#normalization-form input'); input.value = ''; input.dispatchEvent(new Event('change', {bubbles:true}));})()`,
+  );
   assert.equal(await text('[data-file-summary]'), 'Файлы не выбраны');
   assert.equal(await text('.normalization-result'), '');
   await click('.number-field [data-step="1"]');
@@ -356,7 +379,7 @@ async function run() {
     '20',
   );
   await evaluate(
-    'document.querySelector("[name=domain]").value = "library"; document.querySelector("[name=size]").value = "80"; document.querySelector("#generator-form").requestSubmit()',
+    'document.querySelector("[name=domain]").value = "library"; document.querySelector("[name=size]").value = "80"; document.querySelector("[name=difficulty]").value = "medium"; document.querySelector("#generator-form").requestSubmit()',
   );
   assert.match(await text('.dataset-summary'), /Библиотека/);
   assert.equal(
@@ -740,7 +763,11 @@ async function run() {
   const aiConfig = await evaluate(
     'JSON.parse(localStorage.getItem("forma.v1")).config',
   );
-  assert.deepEqual(aiConfig.aiTheme, {...themeFixture(aiConfig.domain), description: 'Учебная мастерская проверяет учёт товаров. Описание исправлено пользователем'});
+  assert.deepEqual(aiConfig.aiTheme, {
+    ...themeFixture(aiConfig.domain),
+    description:
+      'Учебная мастерская проверяет учёт товаров. Описание исправлено пользователем',
+  });
   reload = new Promise(resolve =>
     window.webContents.once('did-finish-load', resolve),
   );
@@ -806,7 +833,14 @@ async function run() {
     await preview.webContents.executeJavaScript(
       '[...document.querySelectorAll("[data-file]")].map(button => button.dataset.file)',
     ),
-    ['catalog.csv', 'users.csv', 'orders.csv', 'assignment.md', 'variant.json'],
+    [
+      'catalog.csv',
+      'users.csv',
+      'orders.csv',
+      'locations.csv',
+      'assignment.md',
+      'variant.json',
+    ],
   );
   assert.match(
     await preview.webContents.executeJavaScript(

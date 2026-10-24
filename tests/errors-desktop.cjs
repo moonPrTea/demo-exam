@@ -61,7 +61,20 @@ async function run() {
       );
     }
     const point = await evaluate(
-      `(async () => {const e=document.querySelector(${JSON.stringify(selector)}); if(e.matches('[data-cell]')) e.scrollIntoView({block:'nearest',inline:'nearest'}); await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))); const r=e.getBoundingClientRect(); return {x:r.x+r.width/2,y:r.y+r.height/2};})()`,
+      `(async () => {
+        const e=document.querySelector(${JSON.stringify(selector)});
+        if(e.matches('[data-cell]')) e.scrollIntoView({block:'nearest',inline:'nearest'});
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        const r=e.getBoundingClientRect();
+        const grid=e.closest('#grid-scroll'), g=grid?.getBoundingClientRect();
+        const left=Math.max(r.left,g ? g.left : 0), top=Math.max(r.top,g ? g.top : 0);
+        const right=Math.min(r.right,g ? g.left+grid.clientWidth : innerWidth);
+        const bottom=Math.min(r.bottom,g ? g.top+grid.clientHeight : innerHeight);
+        if(right<=left || bottom<=top) throw new Error('Hover target is outside the viewport');
+        const x=(left+right)/2, y=(top+bottom)/2;
+        if(!e.contains(document.elementFromPoint(x,y))) throw new Error('Hover target is obscured');
+        return {x,y};
+      })()`,
     );
     await window.webContents.debugger.sendCommand('Input.dispatchMouseEvent', {
       type: 'mouseMoved',
@@ -160,11 +173,14 @@ async function run() {
     );
     await hover('[data-cell="I99"]');
     await wait(visible).catch(async error => {
-      console.log('Tooltip diagnostics:', await evaluate(`({
+      console.log(
+        'Tooltip diagnostics:',
+        await evaluate(`({
         trace: window.trace, focus: document.hasFocus(),
         cell: document.querySelector('[data-cell=I99]').getBoundingClientRect().toJSON(),
         popup: document.querySelector('#cell-error-tooltip').outerHTML
-      })`));
+      })`),
+      );
       throw error;
     });
     assert.equal(

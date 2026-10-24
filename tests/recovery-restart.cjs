@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const recoverySnapshots = require('./recovery-helper.cjs');
 
 if (!process.argv[2]) {
   const {spawnSync} = require('node:child_process');
@@ -25,8 +26,8 @@ if (!process.argv[2]) {
   console.log('Recovery survives a real application restart:', directory);
 } else {
   const {app, BrowserWindow} = require('electron');
-  const {start} = require('../build/electron/main.cjs');
-  const {openSheets} = require('../build/electron/sheets.cjs');
+  const {setup} = require('../build/electron/main.cjs');
+  const {openSheets, restoreSheets} = require('../build/electron/sheets.cjs');
   const mode = process.argv[2],
     directory = process.argv[3];
   app.setPath('userData', directory);
@@ -46,8 +47,8 @@ if (!process.argv[2]) {
   const ready = window =>
     wait(() => js(window, '!!document.querySelector("[data-sheet]")'));
   async function run() {
-    start();
-    await wait(() => BrowserWindow.getAllWindows().length > 0);
+    await app.whenReady();
+    await setup();
     if (mode === 'write') {
       openSheets();
       await wait(() => editors().length === 1);
@@ -65,9 +66,9 @@ if (!process.argv[2]) {
         `(() => { const f = document.querySelector('#formula'); f.value = '=INDEX('; f.dispatchEvent(new Event('input')); })()`,
       );
       await wait(() =>
-        js(
-          second,
-          'document.querySelector("#recovery").textContent.includes("saved")',
+        recoverySnapshots(directory).some(
+          snapshot =>
+            snapshot.language === 'en' && snapshot.draft?.text === '=INDEX(',
         ),
       );
       assert.equal(
@@ -77,6 +78,7 @@ if (!process.argv[2]) {
       console.log('write complete');
       app.quit();
     } else {
+      await restoreSheets();
       await wait(() => editors().length === 2);
       for (const window of editors()) await ready(window);
       const values = await Promise.all(

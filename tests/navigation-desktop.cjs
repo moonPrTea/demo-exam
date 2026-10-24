@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
+const recoverySnapshots = require('./recovery-helper.cjs');
 const {setup} = require('../build/electron/main.cjs');
 const {openSheets, restoreSheets} = require('../build/electron/sheets.cjs');
 app.on('window-all-closed', () => {});
@@ -62,7 +63,11 @@ async function run() {
     document.querySelector('#formula').dispatchEvent(new Event('input', {bubbles:true}));
     document.querySelector('#formula-bar button[type=submit]').click();`);
   await wait(() =>
-    js('document.querySelector("#recovery").textContent.includes("записана")'),
+    recoverySnapshots(dir).some(snapshot =>
+      snapshot.document.cells.some(
+        cell => cell.address === 'I2' && cell.input?.formula === '=42',
+      ),
+    ),
   );
   const recovery = path.join(dir, 'sheet-recovery');
   await fs.rename(recovery, recovery + '-backup');

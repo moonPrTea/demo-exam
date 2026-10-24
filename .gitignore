@@ -49,3 +49,4 @@ __pycache__/
 # Project-local .NET SDK and NuGet cache for Studio
 .tools/
 .nuget/
+.ui-test-artifacts/

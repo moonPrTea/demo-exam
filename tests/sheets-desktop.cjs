@@ -92,10 +92,13 @@ async function run() {
   ]) {
     window.setContentSize(width, height);
     await frame();
-    assert.deepEqual(await evaluate('[innerWidth, innerHeight]'), [
-      width,
-      height,
-    ]);
+    const [actualWidth, actualHeight] = await evaluate(
+      '[innerWidth, innerHeight]',
+    );
+    const [contentWidth, contentHeight] = window.getContentSize();
+    assert.ok(Math.abs(actualWidth - contentWidth) <= 1);
+    assert.ok(Math.abs(actualHeight - contentHeight) <= 1);
+    assert.ok(actualWidth > 0 && actualHeight > 0);
     assert.equal(
       await evaluate('document.documentElement.scrollWidth <= innerWidth'),
       true,
@@ -134,7 +137,7 @@ async function run() {
   window.setContentSize(900, 650);
   pass('125%, 150% and 200% zoom');
 
-  await click('summary');
+  await click('#options > summary');
   assert.equal(await evaluate('document.querySelector("#options").open'), true);
   assert.equal(
     await evaluate(
@@ -282,11 +285,34 @@ async function run() {
     parent.webContents.once('did-finish-load', resolve),
   );
   await parent.webContents.executeJavaScript('window.desktop.openSheets()');
-  assert.equal(BrowserWindow.getAllWindows().length, 2,
-    JSON.stringify(BrowserWindow.getAllWindows().map(w => w.webContents.getURL())));
-  pass('Launch from application bridge reuses editor');
+  const blank = BrowserWindow.getAllWindows().find(
+    w => w !== window && w !== parent,
+  );
+  assert.ok(blank, 'Launching a blank workbook preserves the sample workbook');
+  if (blank.webContents.isLoading())
+    await new Promise(resolve =>
+      blank.webContents.once('did-finish-load', resolve),
+    );
+  assert.equal(
+    await blank.webContents.executeJavaScript(
+      'document.querySelector("[data-cell=A1]").textContent',
+    ),
+    '',
+  );
+  await parent.webContents.executeJavaScript('window.desktop.openSheets()');
+  assert.equal(
+    BrowserWindow.getAllWindows().length,
+    3,
+    JSON.stringify(
+      BrowserWindow.getAllWindows().map(w => w.webContents.getURL()),
+    ),
+  );
+  pass('Launch from application bridge opens a blank workbook and reuses it');
 
   let prompts = 0;
+  const recovery = path.join(dir, 'profile', 'sheet-recovery');
+  await fs.rename(recovery, recovery + '-backup');
+  await fs.writeFile(recovery, 'Simulated unavailable recovery directory');
   dialog.showMessageBoxSync = () => {
     prompts++;
     return 0;

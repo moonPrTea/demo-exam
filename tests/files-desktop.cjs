@@ -2,6 +2,7 @@ const {app, BrowserWindow, dialog} = require('electron');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const path = require('node:path');
+const recoverySnapshots = require('./recovery-helper.cjs');
 const os = require('node:os');
 const {setup} = require('../build/electron/main.cjs');
 const {openSheets, restoreSheets} = require('../build/electron/sheets.cjs');
@@ -38,7 +39,14 @@ async function run() {
       w,
       `(() => { const f = document.querySelector('#formula'); f.value = ${JSON.stringify(text)}; f.dispatchEvent(new Event('input', {bubbles:true})); })()`,
     );
-  const recovery = () => fs.readdir(path.join(directory, 'sheet-recovery'));
+  const recovery = async () => {
+    try {
+      return await fs.readdir(path.join(directory, 'sheet-recovery'));
+    } catch (error) {
+      if (error.code === 'ENOENT') return [];
+      throw error;
+    }
+  };
   openSheets();
   let window = BrowserWindow.getAllWindows()[0];
   await ready(window);
@@ -134,9 +142,10 @@ async function run() {
   await input(loaded, '=123');
   await click(loaded, '#formula-bar button[type=submit]');
   await wait(() =>
-    js(
-      loaded,
-      'document.querySelector("#recovery").textContent.includes("saved")',
+    recoverySnapshots(directory).some(snapshot =>
+      snapshot.document.cells.some(
+        cell => cell.address === 'H2' && cell.input?.formula === '=123',
+      ),
     ),
   );
   loaded.destroy();
